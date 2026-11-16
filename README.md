@@ -57,3 +57,10 @@ Start Command: `python server.py`. Eine persistente Render Disk mit Mount Path `
 - API-Keys, `.env`-Dateien, Datenbankdateien und Passwörter nicht in GitHub veröffentlichen.
 - Vor einem kommerziellen Start müssen die Nutzungsrechte der Datenquelle für den konkreten Preisvergleich und das geplante Abo-Modell schriftlich geklärt sein.
 - Die Anwendung ist eine Beta-Grundlage. E-Mail-Verifizierung, Passwort-Reset, vollständige Rechtstexte, Zahlungsabwicklung und automatisierte Abo-Verwaltung sind nicht enthalten.
+
+## Profile, game details and owner tools
+- Open `/profile.html` after signing in for the account overview, favourites, search history and username settings.
+- Search result cards link to `/game.html?name=...` for the available game and offer details returned by the data provider.
+- Signed-in users can save games to favourites from result cards or the detail page.
+- Owner accounts get an Owner Dashboard inside the profile. It lists accounts and lets the owner change user roles and tier labels (`free`, `radar`, `radar_plus`, `ultimate`).
+- These tier changes are account metadata only. Checkout, recurring billing and automatic subscription enforcement are not enabled.

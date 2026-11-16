@@ -153,6 +153,31 @@ class Handler(SimpleHTTPRequestHandler):
             with db() as c: u=c.execute('SELECT * FROM users WHERE lower(email)=?',(email,)).fetchone()
             if not u or not verify_password(pw,u['password_hash']): return self.send_json(401,{'message':'E-Mail oder Passwort ist falsch.'})
             return self.create_session(u['id'])
+        if path=='/api/profile':
+            u=self.current_user()
+            if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
+            username=str(data.get('username','')).strip()[:32]
+            if len(username)<2: return self.send_json(400,{'message':'Der Benutzername muss mindestens 2 Zeichen lang sein.'})
+            with db() as c:
+                c.execute('UPDATE users SET username=? WHERE id=?',(username,u['id']))
+                updated=c.execute('SELECT * FROM users WHERE id=?',(u['id'],)).fetchone()
+            return self.send_json(200,{'ok':True,'user':self.user_json(dict(updated))})
+        if path=='/api/admin/user':
+            admin=self.current_user()
+            if not admin or admin.get('role')!='owner': return self.send_json(403,{'message':'Owner-Berechtigung erforderlich.'})
+            try: target_id=int(data.get('id'))
+            except (TypeError,ValueError): return self.send_json(400,{'message':'Ungültige Benutzer-ID.'})
+            tier=str(data.get('tier','free')).lower()
+            role=str(data.get('role','user')).lower()
+            if tier not in ('free','radar','radar_plus','ultimate') or role not in ('user','owner'):
+                return self.send_json(400,{'message':'Ungültige Rolle oder Tarifstufe.'})
+            with db() as c:
+                target=c.execute('SELECT id,email FROM users WHERE id=?',(target_id,)).fetchone()
+                if not target: return self.send_json(404,{'message':'Benutzer nicht gefunden.'})
+                if OWNER_EMAIL and target['email'].lower()==OWNER_EMAIL:
+                    return self.send_json(400,{'message':'Das fest konfigurierte Betreiber-Konto kann hier nicht geändert werden.'})
+                c.execute('UPDATE users SET tier=?,role=? WHERE id=?',(tier,role,target_id))
+            return self.send_json(200,{'ok':True,'message':'Benutzerkonto aktualisiert.'})
         if path=='/api/logout':
             u=self.current_user(); cookie=self.headers.get('Cookie',''); token=''
             for part in cookie.split(';'):
@@ -180,6 +205,27 @@ class Handler(SimpleHTTPRequestHandler):
         parsed=urllib.parse.urlparse(self.path); params=urllib.parse.parse_qs(parsed.query)
         if parsed.path=='/api/me':
             u=self.current_user(); return self.send_json(200,{'user':self.user_json(u) if u else None})
+        if parsed.path=='/api/history':
+            u=self.current_user()
+            if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
+            with db() as c: rows=c.execute('SELECT term,created_at FROM search_history WHERE user_id=? ORDER BY id DESC LIMIT 100',(u['id'],)).fetchall()
+            return self.send_json(200,{'items':[dict(x) for x in rows]})
+        if parsed.path=='/api/admin/users':
+            u=self.current_user()
+            if not u or u.get('role')!='owner': return self.send_json(403,{'message':'Owner-Berechtigung erforderlich.'})
+            with db() as c: rows=c.execute('SELECT id,email,username,role,tier,created_at FROM users ORDER BY created_at DESC').fetchall()
+            return self.send_json(200,{'items':[dict(x) for x in rows]})
+        if parsed.path=='/api/game':
+            name=(params.get('name') or [''])[0].strip()
+            if not name: return self.send_json(400,{'message':'Spielname fehlt.'})
+            try:
+                payload,remaining=fetch_sdb(name,5)
+                items=normalise(payload)
+                exact=next((x for x in items if x.get('name','').casefold()==name.casefold()),None)
+                game=exact or (items[0] if items else None)
+                if not game: return self.send_json(404,{'message':'Keine Spieldetails gefunden.'})
+                return self.send_json(200,{'game':game,'attribution':payload.get('attribution') or {'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'}})
+            except Exception as e: return self.send_json(502,{'message':str(e)})
         if parsed.path=='/api/favorites':
             u=self.current_user()
             if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
@@ -234,7 +280,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(200,data)
             except Exception as e: return self.send_json(502,{'message':str(e)})
         if parsed.path=='/api/health':
-            return self.send_json(200,{'ok':True,'provider':'SuperDuperBundle','api_key_configured':bool(API_KEY),'database':'sqlite','database_path':DB_PATH,'persistent_disk_required':True,'platform_search':['steam','epic','gog'],'coming_soon_platforms':['instantgaming','g2a','xbox','psn'],'instant_gaming_ui':True,'instant_gaming_api_configured':bool(INSTANT_GAMING_RAPIDAPI_KEY and INSTANT_GAMING_RAPIDAPI_HOST),'g2a_ui':True,'g2a_credentials_configured':bool(G2A_CLIENT_ID and G2A_CLIENT_SECRET),'subscriptions_ui':True,'payments_enabled':False})
+            return self.send_json(200,{'ok':True,'provider':'SuperDuperBundle','api_key_configured':bool(API_KEY),'database':'sqlite','database_path':DB_PATH,'persistent_disk_required':True,'platform_search':['steam','epic','gog'],'coming_soon_platforms':['instantgaming','g2a','xbox','psn'],'instant_gaming_ui':True,'instant_gaming_api_configured':bool(INSTANT_GAMING_RAPIDAPI_KEY and INSTANT_GAMING_RAPIDAPI_HOST),'g2a_ui':True,'g2a_credentials_configured':bool(G2A_CLIENT_ID and G2A_CLIENT_SECRET),'subscriptions_ui':True,'profile_ui':True,'game_detail_ui':True,'owner_dashboard':True,'payments_enabled':False})
         return super().do_GET()
 
 init_db()

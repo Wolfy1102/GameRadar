@@ -4,6 +4,8 @@ const searchForm = document.getElementById("searchForm");
 const searchButton = document.getElementById("searchButton");
 const gamesContainer = document.getElementById("games");
 let selectedPlatform = "steam";
+const initialQuery = new URLSearchParams(location.search).get('q');
+if (initialQuery) searchInput.value = initialQuery;
 
 const providerNames = {
   steam: "Steam", epic: "Epic Games", gog: "GOG",
@@ -40,15 +42,24 @@ function renderGames(items) {
     const discount = Number(item.discount);
     const discountBadge = Number.isFinite(discount) && discount > 0 ? `<span class="deal-badge">-${discount}%</span>` : "";
     const link = /^https:\/\//i.test(item.url || "") ? item.url : "#";
-    return `<article class="game-card">
-      <div class="game-art">${discountBadge}<img class="game-image" src="${image}" alt="${name}" loading="lazy" onerror="this.style.display='none'"></div>
-      <div class="game-info"><div class="store-label">${escapeHtml(provider)}</div><h3 title="${name}">${name}</h3>
+    const detailUrl = `/game.html?name=${encodeURIComponent(item.name || '')}`;
+    return `<article class="game-card" data-detail="${escapeHtml(detailUrl)}">
+      <a class="game-art" href="${escapeHtml(detailUrl)}" aria-label="${name} öffnen">${discountBadge}<img class="game-image" src="${image}" alt="${name}" loading="lazy" onerror="this.style.display='none'"></a>
+      <div class="game-info"><div class="store-label">${escapeHtml(provider)}</div><h3 title="${name}"><a href="${escapeHtml(detailUrl)}">${name}</a></h3>
         <div class="game-bottom"><span class="game-price">${escapeHtml(formatPrice(item))}</span>
           <a class="game-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">VIEW DEAL ↗</a>
-        </div>
+        </div><div class="detail-actions"><a class="small-action" href="${escapeHtml(detailUrl)}">Spielübersicht ↗</a><button class="small-action favorite-add" type="button" data-name="${name}">☆ Favorit</button></div>
       </div>
     </article>`;
   }).join("");
+  gamesContainer.querySelectorAll('.favorite-add').forEach(button => button.addEventListener('click', async event => {
+    event.preventDefault();
+    try {
+      const r = await fetch('/api/favorites', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:button.dataset.name})});
+      const d = await r.json(); if (!r.ok) throw new Error(d.message || 'Bitte zuerst einloggen.');
+      button.textContent = '✓ Gespeichert'; button.disabled = true;
+    } catch (e) { alert(e.message); }
+  }));
 }
 async function searchGames(event) {
   if (event) event.preventDefault();
@@ -113,13 +124,9 @@ async function refreshAccount() {
     const r = await fetch('/api/me', { credentials: 'same-origin' });
     const d = await r.json();
     if (d.user) {
-      accountButton.textContent = `${d.user.username} · ${d.user.role === 'owner' ? 'OWNER' : d.user.tier.toUpperCase()}`;
+      accountButton.textContent = `${d.user.username} · PROFIL`; 
       accountButton.title = `${d.user.email} · angemeldet`;
-      accountButton.onclick = async () => {
-        if (!confirm('Möchtest du dich abmelden?')) return;
-        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
-        location.reload();
-      };
+      accountButton.onclick = () => { location.href = '/profile.html'; };
     } else {
       accountButton.textContent = 'LOGIN / REGISTER';
       accountButton.onclick = openAuth;

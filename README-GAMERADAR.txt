@@ -21,3 +21,12 @@ Die Suche benötigt eine Internetverbindung; die App-Oberfläche wird offline
 zwischengespeichert.
 
 Plattformen: Steam, Epic Games, GOG, Instant Gaming und G2A. Instant Gaming und G2A benötigen noch freigegebene API-Zugänge und konkrete API-Spezifikationen; bis dahin sind sie als vorbereitete Auswahl sichtbar, aber nicht live.
+
+NEUE PROFIL- UND DETAILFUNKTIONEN
+- /profile.html: persönliches Profil mit Übersicht, Favoriten, Suchverlauf und Kontoeinstellungen.
+- /game.html?name=SPIEL: Detailseite mit verfügbaren Spieldaten und Angebotsübersicht aus der Datenquelle.
+- Favoriten können aus Suchergebnissen oder der Spielseite gespeichert werden.
+- Owner sehen im Profil zusätzlich das Owner-Dashboard und können Benutzerrollen sowie Tarifstufen verwalten.
+- Owner-API: GET /api/admin/users und POST /api/admin/user (nur Rolle owner).
+- Tarifstufen: free, radar, radar_plus, ultimate. Zahlungsabwicklung ist weiterhin nicht aktiviert.
+- Benutzer können ihren Benutzernamen in den Profileinstellungen ändern.
