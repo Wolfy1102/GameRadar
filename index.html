@@ -1,48 +1,76 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-    <link rel="apple-touch-icon" href="/icon-180.png">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Deal Radar">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
-    <meta name="google-site-verification" content="Gqcumy1SxfVL8t6yHWEx5Sz8FyhaPpjzKEiJDkq8jxU" />
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steam Deal Radar</title>
-<meta name="description" content="Steam Deal Radar: Entdecke die besten Steam-Angebote, vergleiche Spielepreise und finde starke Gaming-Rabatte.">
-<meta name="robots" content="index, follow">
-<meta name="theme-color" content="#101820">
-<meta property="og:title" content="Steam Deal Radar">
-<meta property="og:description" content="Finde die besten Steam-Angebote und Gaming-Rabatte.">
-<meta property="og:type" content="website">
-
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070b12">
+  <meta name="description" content="GameRadar findet Gaming-Angebote und Rabatte. Alle Spiele, eine Suche, ein Radar.">
+  <meta property="og:title" content="GameRadar — Every Game. Every Platform. One Radar.">
+  <meta property="og:description" content="Entdecke starke Gaming-Angebote auf einen Blick.">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/style.css">
+  <title>GameRadar — Gaming Deals entdecken</title>
 </head>
 <body>
-    <header>
-        <h1>🎮 Steam Deal Radar</h1>
-        <p>Finde die besten Steam-Angebote!</p>
-    </header>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="GameRadar Startseite">
+      <span class="brand-mark"><span></span><i></i></span>
+      <span>GAME<span>RADAR</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Hauptnavigation">
+      <a class="active" href="#discover">Discover</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#deals">Top Deals</a>
+    </nav>
+    <div class="top-status"><span class="status-dot"></span> RADAR ONLINE</div>
+  </header>
 
-    <main>
-        <input id="search" type="text" placeholder="Spiel suchen...">
-
-        <select id="region">
-            <option value="de">Deutschland</option>
-            <option value="us">USA</option>
-            <option value="gb">Großbritannien</option>
-            <option value="fr">Frankreich</option>
+  <main>
+    <section class="hero" id="discover">
+      <div class="eyebrow"><span class="eyebrow-line"></span> YOUR NEXT GAME IS OUT THERE</div>
+      <h1>Find your next<br><span>great deal.</span></h1>
+      <p class="hero-copy">Alle Games. Alle Plattformen. Ein Radar.<br>Entdecke Angebote und spare beim nächsten Abenteuer.</p>
+      <form class="search-panel" id="searchForm">
+        <span class="search-icon">⌕</span>
+        <input id="search" type="search" placeholder="Nach Spielen suchen …" autocomplete="off" aria-label="Spiel suchen">
+        <select id="region" aria-label="Region">
+          <option value="de">DE</option><option value="us">US</option><option value="gb">UK</option><option value="fr">FR</option>
         </select>
+        <button id="searchButton" type="submit">SEARCH <span>↗</span></button>
+      </form>
+      <div class="search-hint"><span>↳</span> Suche aktuell im Steam-Katalog · weitere Plattformen folgen</div>
+    </section>
 
-        <button id="searchButton">Spiele suchen</button>
+    <section class="platform-section" id="platforms">
+      <div class="section-heading">
+        <div><div class="eyebrow">THE GAMING UNIVERSE</div><h2>Choose your <span>platform.</span></h2></div>
+        <span class="section-note">MORE PLATFORMS COMING</span>
+      </div>
+      <div class="platform-grid">
+        <div class="platform-card platform-active"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>Deals live</small></span><span class="live-pill">LIVE</span></div>
+        <div class="platform-card"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <div class="platform-card"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <div class="platform-card"><span class="platform-symbol xbox-symbol">X</span><span><b>Xbox</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <div class="platform-card"><span class="platform-symbol ps-symbol">P</span><span><b>PlayStation</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <div class="platform-card"><span class="platform-symbol nintendo-symbol">N</span><span><b>Nintendo</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+      </div>
+    </section>
 
-        <section id="games">
-            <p>Deine Angebote erscheinen hier.</p>
-        </section>
-    </main>
+    <section class="deals-section" id="deals">
+      <div class="section-heading deals-heading">
+        <div><div class="eyebrow">SCAN THE STORE</div><h2>Radar <span>results.</span></h2></div>
+        <div class="results-label"><span class="status-dot"></span> STEAM STORE</div>
+      </div>
+      <div id="games" class="games-grid">
+        <div class="empty-state"><div class="radar-loader"><span></span><i></i></div><h3>Ready when you are.</h3><p>Gib oben einen Spieletitel ein und starte den Radar.</p></div>
+      </div>
+    </section>
+  </main>
 
-    <script src="script.js"></script>
+  <footer><a class="brand footer-brand" href="/"><span class="brand-mark"><span></span><i></i></span><span>GAME<span>RADAR</span></span></a><p>EVERY GAME. EVERY PLATFORM. ONE RADAR.</p><span>© 2026 GAMERADAR</span></footer>
+  <script src="/script.js"></script>
 </body>
 </html>
