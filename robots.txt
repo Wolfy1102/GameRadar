@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://steam-deal-radar-2-0.onrender.com/sitemap.xml
