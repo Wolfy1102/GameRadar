@@ -16,7 +16,8 @@ So verwendest du das Update:
 5. Render sollte anschließend automatisch neu deployen.
 
 WICHTIG:
-Aktuell ist nur die Steam-Suche technisch angebunden. Epic Games, GOG, Xbox,
-PlayStation und Nintendo sind im Design als kommende Plattformen markiert.
+Aktuell ist nur die Steam-Suche technisch angebunden. Epic Games und GOG sind über die bestehende Datenquelle suchbar. Xbox und PlayStation bleiben als kommende Plattformen enthalten; die angefragten API-Freigaben stehen noch aus. Nintendo ist nicht enthalten.
 Die Suche benötigt eine Internetverbindung; die App-Oberfläche wird offline
 zwischengespeichert.
+
+Plattformen: Steam, Epic Games, GOG, Instant Gaming und G2A. Instant Gaming und G2A benötigen noch freigegebene API-Zugänge und konkrete API-Spezifikationen; bis dahin sind sie als vorbereitete Auswahl sichtbar, aber nicht live.

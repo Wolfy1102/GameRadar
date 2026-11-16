@@ -1,43 +1,47 @@
-GAMERADAR – GAMEPRICES.NOW API EINRICHTEN
+GAMERADAR 2.0 – API- UND PLATTFORMSTATUS
 
-Diese Aktualisierung verbindet GameRadar serverseitig mit gameprices.now.
-Der API-Schlüssel wird NICHT in HTML oder JavaScript gespeichert.
+BESTEHENDER DATENZUGANG
+-----------------------
+Die vorhandene Suche verwendet den SuperDuperBundle-Lookup-Endpunkt. Der
+optionale Schlüssel wird serverseitig über SUPERDUPERBUNDLE_API_KEY gesetzt.
+Der Schlüssel gehört ausschließlich in die Environment Variables von Render,
+nicht in HTML, JavaScript oder GitHub.
 
-1) Account und API-Key
-- Öffne https://gameprices.now/en/pricing
-- Wähle einen passenden kostenpflichtigen Tarif.
-- Erstelle/öffne deinen Account unter https://gameprices.now/en/account
-- Erzeuge einen API-Key und kopiere ihn sicher. Er wird laut Anbieter nur einmal angezeigt.
-- Teile den Key niemals im Chat oder in GitHub.
+Render:
+1. Web Service öffnen.
+2. Environment öffnen.
+3. SUPERDUPERBUNDLE_API_KEY als Key und den eigenen Schlüssel als Value setzen,
+   sofern der Anbieter für den Account einen Schlüssel verlangt.
+4. Speichern und neu deployen.
+5. /api/health öffnen und den Status prüfen.
 
-2) Render – Environment Variable
-- Öffne https://dashboard.render.com/
-- Wähle deinen GameRadar Web Service.
-- Öffne Environment (oder Environment Variables).
-- Add Environment Variable:
-  Key: GAMEPRICES_API_KEY
-  Value: DEIN_ECHTER_API_KEY
-- Speichern und anschließend einen neuen Deploy starten.
+PLATTFORMEN
+-----------
+Steam ist über den bestehenden Datenpartner suchbar. Epic Games und GOG können
+über Store-/DRM-Angaben in dessen Suchantwort gefiltert werden. Das ist keine
+direkte offizielle API-Anbindung an Epic oder GOG. Die Anfragen für eine
+offizielle Nutzung sind gestellt; eine Freigabe ist noch offen.
 
-3) Dateien in GitHub ersetzen
-- Ersetze server.py mit dieser Version.
-- Ersetze script.js mit dieser Version.
-- Lass index.html und style.css aus dem aktuellen GameRadar-Design bestehen.
-- In index.html muss das Regionsfeld weiterhin id="region" haben und den Wert "de" für Deutschland liefern.
-- Render deployt nach dem Commit automatisch.
+Instant Gaming:
+- Die Integration ist vorbereitet, aber nicht live.
+- Noch fehlen schriftliche Freigabe für den konkreten Preisvergleich sowie eine
+  konkrete, dokumentierte API mit Such-Endpunkt und Antwortformat.
+- Vorgesehene Render-Variablen: INSTANT_GAMING_RAPIDAPI_KEY und
+  INSTANT_GAMING_RAPIDAPI_HOST. Diese Werte allein aktivieren keine Integration.
 
-4) Test
-- Öffne deine GameRadar-Seite.
-- Suche nach einem bekannten Spiel, z. B. Elden Ring.
-- Wenn Render keine API-Verbindung hat, prüfe /api/health:
-  https://DEINE-RENDER-URL/api/health
-  api_key_configured muss true anzeigen.
+G2A:
+- Die Integration ist vorbereitet, aber nicht live.
+- Die Export API ist nicht automatisch eine allgemeine Preisvergleichs-API.
+  Der geplante Einsatzzweck muss von G2A freigegeben und technisch dokumentiert
+  werden.
+- Vorgesehene Render-Variablen: G2A_CLIENT_ID und G2A_CLIENT_SECRET.
 
-HINWEISE
-- Die API deckt laut Dokumentation neun Stores ab: PlayStation, Xbox, Nintendo,
-  Steam, Epic, EA, Ubisoft, Battle.net und GOG.
-- Die API ist kostenpflichtig. Preise und Limits hängen vom Tarif ab.
-- Der Schlüssel bleibt ausschließlich auf dem Render-Server.
-- Aktuell liefert diese erste Integration Suchtreffer über /v1/best.
-- Die Länderwahl nutzt ISO-Ländercodes; Deutschland ist DE.
-- API-Dokumentation: https://gameprices.now/en/docs
+Xbox und PlayStation bleiben enthalten. Die API-Anfragen wurden gestellt; die schriftliche Freigabe und die passenden technischen Angaben stehen noch aus. Beide Konsolen-Suchen bleiben bis dahin als Coming Soon sichtbar. Nintendo ist nicht enthalten.
+
+WICHTIG
+-------
+Keine unbekannten Endpunkte erraten, keine nicht freigegebenen Quellen abfragen
+und keine Preise simulieren. API-Integration erst nach passender Freigabe und
+Dokumentation aktivieren. Vor einem kommerziellen Abo-Start muss auch die
+Datennutzung durch den bestehenden Datenpartner für diesen Zweck geklärt sein.
+Zahlungen sind in dieser Version deaktiviert.
