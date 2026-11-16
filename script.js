@@ -73,6 +73,7 @@ async function searchGames() {
     }
 }
 
+
 searchButton.addEventListener("click", searchGames);
 
 searchInput.addEventListener("keydown", event => {
@@ -80,3 +81,19 @@ searchInput.addEventListener("keydown", event => {
         searchGames();
     }
 });
+
+// Steam Deal Radar PWA registrieren
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker
+            .register("/service-worker.js")
+            .then((registration) => {
+                console.log("PWA erfolgreich registriert:", registration.scope);
+            })
+            .catch((error) => {
+                console.error("PWA-Registrierung fehlgeschlagen:", error);
+            });
+    });
+}
+    
+
