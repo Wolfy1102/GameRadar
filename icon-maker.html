@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steam Deal Radar Icon Maker</title>
+</head>
+<body style="background:#101820;color:white;font-family:Arial;text-align:center;padding:30px">
+
+<h2>Steam Deal Radar – Icon Maker</h2>
+<canvas id="icon" width="512" height="512" style="width:240px;max-width:80%;border-radius:25px"></canvas>
+
+<p>
+<button onclick="downloadIcon(192)">PNG 192x192 erstellen</button>
+</p>
+<p>
+<button onclick="downloadIcon(512)">PNG 512x512 erstellen</button>
+</p>
+<p>
+<button onclick="downloadIcon(180)">PNG 180x180 erstellen (apple)</button>
+</p>
+
+<script>
+const canvas = document.getElementById("icon");
+const ctx = canvas.getContext("2d");
+
+function drawIcon() {
+    ctx.fillStyle = "#101820";
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Radar-Ringe
+    ctx.strokeStyle = "#35d07f";
+    ctx.lineWidth = 13;
+
+    [100, 165].forEach(radius => {
+        ctx.beginPath();
+        ctx.arc(256, 256, radius, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // Radar-Achsen
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(256, 256);
+    ctx.lineTo(375, 137);
+    ctx.stroke();
+
+    // Radar-Punkt
+    ctx.fillStyle = "#35d07f";
+    ctx.beginPath();
+    ctx.arc(256, 256, 25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Zielpunkt
+    ctx.beginPath();
+    ctx.arc(375, 137, 13, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function downloadIcon(size) {
+    const output = document.createElement("canvas");
+    output.width = size;
+    output.height = size;
+
+    const context = output.getContext("2d");
+    context.drawImage(canvas, 0, 0, size, size);
+
+    const link = document.createElement("a");
+    link.download = `icon-${size}.png`;
+    link.href = output.toDataURL("image/png");
+    link.click();
+}
+
+drawIcon();
+</script>
+
+</body>
+</html>
