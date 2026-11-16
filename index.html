@@ -25,7 +25,7 @@
       <a href="#platforms">Platforms</a>
       <a href="#deals">Top Deals</a>
     </nav>
-    <div class="top-status"><span class="status-dot"></span> RADAR ONLINE</div>
+    <div class="account-area"><span class="top-status"><span class="status-dot"></span> RADAR ONLINE</span><button class="account-button" id="accountButton">LOGIN / SIGN UP</button></div>
   </header>
 
   <main>
@@ -41,7 +41,8 @@
         </select>
         <button id="searchButton" type="submit">SEARCH <span>↗</span></button>
       </form>
-      <div class="search-hint"><span>↳</span> Suche aktuell im Steam-Katalog · weitere Plattformen folgen</div>
+      <div class="search-hint"><span>↳</span> Melde dich an, um die Suche zu nutzen. Mehr Stores je nach Abo-Stufe.</div>
+      <div class="account-status" id="accountStatus" hidden></div>
     </section>
 
     <section class="platform-section" id="platforms">
@@ -51,11 +52,11 @@
       </div>
       <div class="platform-grid">
         <div class="platform-card platform-active"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>Deals live</small></span><span class="live-pill">LIVE</span></div>
-        <div class="platform-card"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol xbox-symbol">X</span><span><b>Xbox</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol ps-symbol">P</span><span><b>PlayStation</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol nintendo-symbol">N</span><span><b>Nintendo</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <div class="platform-card"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>API-Verfügbarkeit abhängig</small></span><span class="soon-pill">API</span></div>
+        <div class="platform-card"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>API-Verfügbarkeit abhängig</small></span><span class="soon-pill">API</span></div>
+        <div class="platform-card"><span class="platform-symbol xbox-symbol">X</span><span><b>Xbox</b><small>API-Verfügbarkeit abhängig</small></span><span class="soon-pill">API</span></div>
+        <div class="platform-card"><span class="platform-symbol ps-symbol">P</span><span><b>PlayStation</b><small>API-Verfügbarkeit abhängig</small></span><span class="soon-pill">API</span></div>
+        <div class="platform-card"><span class="platform-symbol nintendo-symbol">N</span><span><b>Nintendo</b><small>API-Verfügbarkeit abhängig</small></span><span class="soon-pill">API</span></div>
       </div>
     </section>
 
@@ -68,9 +69,22 @@
         <div class="empty-state"><div class="radar-loader"><span></span><i></i></div><h3>Ready when you are.</h3><p>Gib oben einen Spieletitel ein und starte den Radar.</p></div>
       </div>
     </section>
+
+    <section class="pricing-section" id="plans">
+      <div class="section-heading"><div><div class="eyebrow">CHOOSE YOUR RADAR</div><h2>Pick your <span>level.</span></h2></div><span class="section-note">BETA · PAYMENTS NOT ENABLED</span></div>
+      <div class="pricing-grid">
+        <article class="plan-card"><div class="plan-name">RADAR</div><div class="plan-price">5 €<small>/ Monat</small></div><p>Für den schnellen Deal-Check.</p><ul><li>Preissuche</li><li>Bis zu 10 Treffer</li><li>Preis & Rabatt anzeigen</li></ul><button class="plan-button" data-plan="radar">Abo-Info</button></article>
+        <article class="plan-card plan-featured"><div class="plan-name">PRO</div><div class="plan-price">10 €<small>/ Monat</small></div><p>Für echte Preisjäger.</p><ul><li>Alles aus Radar</li><li>Mehr Treffer & Preisvergleich</li><li>Store-Filter & Multitool</li></ul><button class="plan-button" data-plan="pro">Abo-Info</button></article>
+        <article class="plan-card"><div class="plan-name">ULTIMATE</div><div class="plan-price">30 €<small>/ Monat</small></div><p>Der große Radar-Ausbau.</p><ul><li>Alles aus Pro</li><li>KI-Assistent (nach API-Anbindung)</li><li>Erweiterte Empfehlungen</li></ul><button class="plan-button" data-plan="ultimate">Abo-Info</button></article>
+      </div>
+      <p class="pricing-note">Die Preise zeigen das geplante Modell. Es werden aktuell keine Zahlungen verarbeitet und kein kostenpflichtiges Abo abgeschlossen.</p>
+    </section>
+    <section class="owner-panel" id="ownerPanel" hidden><div class="section-heading"><div><div class="eyebrow">CONTROL ROOM</div><h2>Owner <span>Console.</span></h2></div><span class="section-note">OWNER ONLY</span></div><form id="tierForm" class="owner-form"><input id="tierEmail" type="email" placeholder="E-Mail des Nutzers" required><select id="tierValue"><option value="free">Free</option><option value="radar">Radar · 5 €</option><option value="pro">Pro · 10 €</option><option value="ultimate">Ultimate · 30 €</option></select><button type="submit">STUFE SETZEN</button></form><p id="ownerMessage" class="pricing-note"></p></section>
   </main>
 
+  <div class="modal-backdrop" id="authModal" hidden><section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle"><button class="modal-close" id="closeAuth" aria-label="Schließen">×</button><div class="eyebrow">YOUR RADAR ACCOUNT</div><h2 id="authTitle">Welcome <span>back.</span></h2><div class="auth-tabs"><button class="auth-tab active" data-mode="login">Login</button><button class="auth-tab" data-mode="register">Konto erstellen</button></div><form id="authForm"><label id="nameWrap" hidden>Name<input id="authName" maxlength="48" autocomplete="name"></label><label>E-Mail<input id="authEmail" type="email" autocomplete="email" required></label><label>Passwort<input id="authPassword" type="password" minlength="12" autocomplete="current-password" required><small>Mindestens 12 Zeichen.</small></label><button class="auth-submit" type="submit" id="authSubmit">ANMELDEN</button><p class="auth-message" id="authMessage" aria-live="polite"></p></form><div class="auth-foot">Beta-Version · Bitte nutze ein einzigartiges Passwort.</div></section></div>
+
   <footer><a class="brand footer-brand" href="/"><span class="brand-mark"><span></span><i></i></span><span>GAME<span>RADAR</span></span></a><p>EVERY GAME. EVERY PLATFORM. ONE RADAR.</p><span>© 2026 GAMERADAR</span></footer>
-  <script src="/script.js"></script>
+  <script src="/script.js" defer></script>
 </body>
 </html>
