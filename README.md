@@ -73,3 +73,6 @@ Melde dich als Owner an. Unten erscheint die Owner Console. Dort kannst du anhan
 - Verwende für den Owner ein starkes, einzigartiges Passwort.
 - Aktiviere öffentliche Zahlungen erst nach korrekter rechtlicher und technischer Einrichtung.
 - Das Projekt enthält keine E-Mail-Verifizierung und keinen Passwort-Reset. Deshalb ist es eine Beta-Grundlage und noch kein fertiger kommerzieller SaaS-Betrieb.
+
+
+Siehe README-LOGIN-RENDER.txt für Login, Owner-Konto und Persistent Disk.

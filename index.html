@@ -25,7 +25,7 @@
       <a href="#platforms">Platforms</a>
       <a href="#deals">Top Deals</a>
     </nav>
-    <div class="top-status"><span class="status-dot"></span> RADAR ONLINE</div>
+    <div class="account-area"><button class="login-button" id="accountButton" type="button">LOGIN / REGISTER</button><span class="top-status"><span class="status-dot"></span> RADAR ONLINE</span></div>
   </header>
 
   <main>
@@ -41,7 +41,7 @@
         </select>
         <button id="searchButton" type="submit">SEARCH <span>↗</span></button>
       </form>
-      <div class="search-hint"><span>↳</span> Suche aktuell im Steam-Katalog · weitere Plattformen folgen</div>
+      <div class="search-hint"><span>↳</span> PC-Key-Angebote mit Steam-/GOG-DRM · Konsolenpreise folgen</div>
     </section>
 
     <section class="platform-section" id="platforms">
@@ -50,7 +50,7 @@
         <span class="section-note">MORE PLATFORMS COMING</span>
       </div>
       <div class="platform-grid">
-        <div class="platform-card platform-active"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>Deals live</small></span><span class="live-pill">LIVE</span></div>
+        <div class="platform-card platform-active"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>PC-Angebote</small></span><span class="live-pill">LIVE</span></div>
         <div class="platform-card"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
         <div class="platform-card"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
         <div class="platform-card"><span class="platform-symbol xbox-symbol">X</span><span><b>Xbox</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
@@ -72,6 +72,18 @@
 
   <footer><a class="brand footer-brand" href="/"><span class="brand-mark"><span></span><i></i></span><span>GAME<span>RADAR</span></span></a><p>EVERY GAME. EVERY PLATFORM. ONE RADAR.</p><span>© 2026 GAMERADAR</span><p>Prices by <a href="https://superduperbundle.com/" target="_blank" rel="noopener noreferrer">SuperDuperBundle</a></p>
 </footer>
+
+  <div class="auth-backdrop" id="authBackdrop" hidden>
+    <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button class="auth-close" id="authClose" type="button" aria-label="Schließen">×</button>
+      <div class="eyebrow">YOUR GAMERADAR ACCOUNT</div><h2 id="authTitle">Willkommen zurück.</h2>
+      <div class="auth-tabs"><button type="button" class="auth-tab active" data-mode="login">Login</button><button type="button" class="auth-tab" data-mode="register">Registrieren</button></div>
+      <form id="authForm"><label for="authUsername" id="usernameLabel" hidden>Benutzername</label><input id="authUsername" maxlength="32" placeholder="Benutzername" autocomplete="username" hidden>
+      <label for="authEmail">E-Mail</label><input id="authEmail" type="email" required maxlength="254" placeholder="name@example.com" autocomplete="email">
+      <label for="authPassword">Passwort</label><input id="authPassword" type="password" required minlength="10" placeholder="Mindestens 10 Zeichen" autocomplete="current-password">
+      <button class="auth-submit" type="submit" id="authSubmit">Einloggen</button><p id="authMessage" role="status"></p></form>
+    </section>
+  </div>
   <script src="/script.js"></script>
 </body>
 </html>

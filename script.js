@@ -78,3 +78,66 @@ searchForm.addEventListener("submit", searchGames);
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js").catch(() => {}));
 }
+
+
+// Account UI: accounts, sessions, favourites and search history are stored server-side.
+const accountButton = document.getElementById('accountButton');
+const authBackdrop = document.getElementById('authBackdrop');
+const authClose = document.getElementById('authClose');
+const authForm = document.getElementById('authForm');
+const authMessage = document.getElementById('authMessage');
+const authTitle = document.getElementById('authTitle');
+const authSubmit = document.getElementById('authSubmit');
+const usernameInput = document.getElementById('authUsername');
+const usernameLabel = document.getElementById('usernameLabel');
+let authMode = 'login';
+function setAuthMode(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  const registering = mode === 'register';
+  usernameInput.hidden = usernameLabel.hidden = !registering;
+  usernameInput.required = registering;
+  document.getElementById('authPassword').autocomplete = registering ? 'new-password' : 'current-password';
+  authTitle.textContent = registering ? 'Konto erstellen.' : 'Willkommen zurück.';
+  authSubmit.textContent = registering ? 'Konto erstellen' : 'Einloggen';
+  authMessage.textContent = registering ? 'Mindestens 10 Zeichen beim Passwort.' : '';
+}
+document.querySelectorAll('.auth-tab').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.mode)));
+function openAuth() { authBackdrop.hidden = false; authMessage.textContent = ''; }
+function closeAuth() { authBackdrop.hidden = true; }
+accountButton?.addEventListener('click', () => openAuth());
+authClose?.addEventListener('click', closeAuth);
+authBackdrop?.addEventListener('click', e => { if (e.target === authBackdrop) closeAuth(); });
+async function refreshAccount() {
+  try {
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d.user) {
+      accountButton.textContent = `${d.user.username} · ${d.user.role === 'owner' ? 'OWNER' : d.user.tier.toUpperCase()}`;
+      accountButton.title = `${d.user.email} · angemeldet`;
+      accountButton.onclick = async () => {
+        if (!confirm('Möchtest du dich abmelden?')) return;
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        location.reload();
+      };
+    } else {
+      accountButton.textContent = 'LOGIN / REGISTER';
+      accountButton.onclick = openAuth;
+    }
+  } catch (_) { accountButton.textContent = 'LOGIN / REGISTER'; }
+}
+authForm?.addEventListener('submit', async e => {
+  e.preventDefault(); authSubmit.disabled = true; authMessage.textContent = 'Bitte warten …';
+  const payload = { email: document.getElementById('authEmail').value, password: document.getElementById('authPassword').value };
+  if (authMode === 'register') payload.username = usernameInput.value;
+  try {
+    const r = await fetch(`/api/${authMode === 'register' ? 'register' : 'login'}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'same-origin', body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.message || 'Anmeldung fehlgeschlagen.');
+    closeAuth(); authForm.reset(); await refreshAccount();
+  } catch (err) { authMessage.textContent = err.message; }
+  finally { authSubmit.disabled = false; }
+});
+refreshAccount();
