@@ -28,5 +28,5 @@ NEUE PROFIL- UND DETAILFUNKTIONEN
 - Favoriten können aus Suchergebnissen oder der Spielseite gespeichert werden.
 - Owner sehen im Profil zusätzlich das Owner-Dashboard und können Benutzerrollen sowie Tarifstufen verwalten.
 - Owner-API: GET /api/admin/users und POST /api/admin/user (nur Rolle owner).
-- Tarifstufen: free, radar, radar_plus, ultimate. Zahlungsabwicklung ist weiterhin nicht aktiviert.
+- Tarifstufen: free, radar (Anzeige: Gamer), radar_plus (Anzeige: Plus), ultimate. Geplante Startpreise: Free 0 €, Gamer 3,99 €/Monat oder 39,99 €/Jahr, Plus 8,99 €/Monat oder 89,99 €/Jahr, Ultimate 16,99 €/Monat oder 169,99 €/Jahr. Bezahlte Tarife sind Coming Soon; Zahlungsabwicklung ist deaktiviert.
 - Benutzer können ihren Benutzernamen in den Profileinstellungen ändern.

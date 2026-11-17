@@ -19,7 +19,7 @@ Es werden keine unbekannten API-Endpunkte geraten und keine Preise erfunden. API
 - SQLite-Konten, Favoriten und Suchverlauf
 - Owner-Konto über `OWNER_EMAIL` mit Ultimate-Rechten
 - Owner Console zur manuellen Vergabe von Test-Abostufen
-- Anzeige der geplanten Abos (5 €, 10 €, 30 € pro Monat)
+- Abo-Vorschau mit Free (0 €), Gamer (3,99 €/Monat oder 39,99 €/Jahr), Plus (8,99 €/Monat oder 89,99 €/Jahr) und Ultimate (16,99 €/Monat oder 169,99 €/Jahr)
 - Responsive Oberfläche, PWA-Dateien und Service Worker
 - Serverseitige Store-Suche über SuperDuperBundle
 
@@ -27,7 +27,7 @@ Es werden keine unbekannten API-Endpunkte geraten und keine Preise erfunden. API
 
 - Instant-Gaming- und G2A-Preisabfragen benötigen Freigabe, API-Dokumentation und Zugangsdaten.
 - Für Epic Games und GOG werden derzeit nur die im bestehenden Datenpartner-Ergebnis enthaltenen Store-/DRM-Angaben gefiltert. Die direkte Nutzung offizieller Anbieter-Feeds ist nicht aktiviert.
-- Zahlungen/Checkout sind deaktiviert. Die Abo-Preise sind eine Vorschau; es werden keine Zahlungen ausgelöst.
+- Zahlungen/Checkout sind deaktiviert. Die geplanten Abo-Preise sind eine Vorschau; Gamer, Plus und Ultimate sind Coming Soon und es werden keine Zahlungen ausgelöst.
 - Die KI-Funktionen sind noch nicht angebunden.
 
 ## Lokal starten
