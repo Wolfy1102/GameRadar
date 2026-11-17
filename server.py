@@ -133,7 +133,9 @@ def steam_app_details(appid, country='de'):
         if not isinstance(m,dict): continue
         movies.append({'name':m.get('name') or 'Gameplay / Trailer','thumbnail':m.get('thumbnail') or '',
           'mp4':(m.get('mp4') or {}).get('480') or (m.get('mp4') or {}).get('max') or '',
-          'webm':(m.get('webm') or {}).get('480') or (m.get('webm') or {}).get('max') or ''})
+          'webm':(m.get('webm') or {}).get('480') or (m.get('webm') or {}).get('max') or '',
+          'hls_h264':m.get('hls_h264') or '', 'dash_h264':m.get('dash_h264') or '',
+          'dash_av1':m.get('dash_av1') or ''})
     release=d.get('release_date') or {}
     return {'appid':int(appid),'name':d.get('name') or 'Unbekanntes Spiel','type':d.get('type') or '',
       'short_description':clean_text(d.get('short_description')),'description':clean_text(d.get('about_the_game') or d.get('detailed_description')),

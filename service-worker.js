@@ -1,4 +1,4 @@
-const CACHE_NAME = "gameradar-v6";
+const CACHE_NAME = "gameradar-v7";
 const FILES_TO_CACHE = [
   "/", "/index.html", "/style.css", "/script.js",
   "/manifest.webmanifest", "/icon.svg", "/profile.html", "/profile.js", "/game.html", "/game.js",

@@ -14,7 +14,7 @@ async function init(){
     document.title=`${g.name} · GameRadar`;
     const shots=st.screenshots||[], movies=st.movies||[];
     const gallery=shots.length?`<section class="game-media-section"><h2>Bilder aus dem Spiel</h2><p class="media-hint">Bild anklicken, um es groß zu öffnen. Mit den Pfeilen kannst du durch die Galerie wechseln.</p><div class="screenshot-gallery">${shots.slice(0,12).map((x,i)=>`<button type="button" class="screenshot-open" data-gallery-index="${i}" data-full="${esc(safeUrl(x.full))}" aria-label="Screenshot ${i+1} groß anzeigen"><img src="${esc(safeUrl(x.thumb)||safeUrl(x.full))}" alt="${esc(g.name)} Screenshot ${i+1}" loading="lazy"></button>`).join('')}</div></section>`:'';
-    const trailers=movies.length?`<section class="game-media-section"><h2>Gameplay & Trailer</h2><div class="trailer-grid">${movies.slice(0,6).map(m=>{const video=safeUrl(m.mp4)||safeUrl(m.webm),thumb=safeUrl(m.thumbnail);return `<article class="trailer-card">${video?`<button type="button" class="trailer-open" data-video="${esc(video)}" data-video-title="${esc(m.name)}" aria-label="Trailer ansehen: ${esc(m.name)}"><img src="${esc(thumb)}" alt="${esc(m.name)}" loading="lazy"><span class="trailer-play" aria-hidden="true">▶</span></button>`:`<div class="trailer-unavailable">${thumb?`<img src="${esc(thumb)}" alt="${esc(m.name)}" loading="lazy">`:''}<span>Video derzeit nicht verfügbar</span></div>`}<p>${esc(m.name)}</p></article>`}).join('')}</div></section>`:'';
+    const trailers=movies.length?`<section class="game-media-section"><h2>Gameplay & Trailer</h2><div class="trailer-grid">${movies.slice(0,6).map(m=>{const hls=safeUrl(m.hls_h264),dash=safeUrl(m.dash_h264)||safeUrl(m.dash_av1),file=safeUrl(m.mp4)||safeUrl(m.webm),video=hls||file||dash,videoType=hls?'hls':file?'file':'dash',thumb=safeUrl(m.thumbnail);return `<article class="trailer-card">${video?`<button type="button" class="trailer-open" data-video="${esc(video)}" data-video-type="${videoType}" data-video-fallback="${esc(file)}" data-video-dash="${esc(dash)}" data-video-title="${esc(m.name)}" aria-label="Trailer ansehen: ${esc(m.name)}"><img src="${esc(thumb)}" alt="${esc(m.name)}" loading="lazy"><span class="trailer-play" aria-hidden="true">▶</span></button>`:`<div class="trailer-unavailable">${thumb?`<img src="${esc(thumb)}" alt="${esc(m.name)}" loading="lazy">`:''}<span>Kein Video von Steam bereitgestellt</span></div>`}<p>${esc(m.name)}</p></article>`}).join('')}</div></section>`:'';
     const description=st.description||st.short_description||'Für dieses Spiel liegt derzeit keine Beschreibung aus der Steam-Datenquelle vor.';
     root.innerHTML=`<div class="eyebrow">GAME INTELLIGENCE</div>
       <div class="detail-hero"><img class="detail-cover" src="${esc(safeUrl(st.header_image)||safeUrl(g.image))}" alt="${esc(g.name)}" onerror="this.style.display='none'"><div><h1 class="page-title">${esc(g.name)}</h1><p class="detail-description-short">${esc(st.short_description||'Spielübersicht und verfügbare Angebotsdaten.')}</p><div class="detail-meta">${(st.genres||[]).map(x=>`<span class="meta-chip">${esc(x)}</span>`).join('')} ${st.release_date?`<span class="meta-chip">Release: ${esc(st.release_date)}</span>`:''}${st.developers?.length?`<span class="meta-chip">Studio: ${esc(st.developers.join(', '))}</span>`:''}</div><h2>${price(st.price!==null&&st.price!==undefined?st:g)}</h2><div class="detail-actions"><button class="primary-action" id="favButton">☆ Zu Favoriten hinzufügen</button>${safeUrl(st.steam_url||g.url)?`<a class="small-action" href="${esc(safeUrl(st.steam_url||g.url))}" target="_blank" rel="noopener noreferrer">Steam Store öffnen ↗</a>`:''}</div><p id="favMessage" role="status"></p></div></div>
@@ -27,13 +27,62 @@ async function init(){
     const viewerVideo=viewer.querySelector('.media-viewer-video');
     const viewerTitle=viewer.querySelector('.media-viewer-title');
     const viewerCount=viewer.querySelector('.media-viewer-count');
+    let activeHls=null, activeDash=null;
+    const scriptLoads={};
+    function loadExternalScript(src){
+      if(scriptLoads[src])return scriptLoads[src];
+      scriptLoads[src]=new Promise((resolve,reject)=>{
+        const script=document.createElement('script');script.src=src;script.async=true;
+        script.onload=resolve;script.onerror=()=>{delete scriptLoads[src];reject(new Error('Videoplayer-Bibliothek konnte nicht geladen werden.'))};
+        document.head.appendChild(script);
+      });
+      return scriptLoads[src];
+    }
+    function clearVideoPlayer(){
+      if(activeHls){activeHls.destroy();activeHls=null;}
+      if(activeDash){try{activeDash.reset();}catch{}activeDash=null;}
+      viewerVideo.pause();viewerVideo.removeAttribute('src');viewerVideo.load();
+    }
+    async function attachTrailer(button){
+      clearVideoPlayer();
+      const source=button.dataset.video||'',type=button.dataset.videoType||'file';
+      const fallback=button.dataset.videoFallback||'',dash=button.dataset.videoDash||'';
+      viewerVideo.hidden=false;viewerImage.hidden=true;
+      viewerTitle.textContent=button.dataset.videoTitle||'Gameplay / Trailer';viewerCount.textContent='Video wird geladen …';
+      if(type==='hls'){
+        if(viewerVideo.canPlayType('application/vnd.apple.mpegurl')){
+          viewerVideo.src=source;viewerVideo.load();
+        }else{
+          try{
+            if(!window.Hls)await loadExternalScript('https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js');
+            if(window.Hls&&window.Hls.isSupported()){
+              activeHls=new window.Hls();activeHls.loadSource(source);activeHls.attachMedia(viewerVideo);
+              activeHls.on(window.Hls.Events.ERROR,(_event,data)=>{
+                if(data.fatal){activeHls.destroy();activeHls=null;if(fallback){viewerVideo.src=fallback;viewerVideo.load();viewerCount.textContent='Video';}else if(dash){attachDash(dash).catch(showVideoError);}else showVideoError();}
+              });
+            }else if(fallback){viewerVideo.src=fallback;viewerVideo.load();}else if(dash){await attachDash(dash);}else throw new Error('Dieses Videoformat wird vom Browser nicht unterstützt.');
+          }catch(error){if(fallback){viewerVideo.src=fallback;viewerVideo.load();}else if(dash){try{await attachDash(dash);}catch{showVideoError()}}else showVideoError(error);}
+        }
+      }else if(type==='dash'){
+        try{await attachDash(source);}catch(error){if(fallback)viewerVideo.src=fallback;else showVideoError(error);}
+      }else{viewerVideo.src=source;viewerVideo.load();}
+      if(viewerVideo.src||activeHls||activeDash)viewerCount.textContent='Video';
+    }
+    async function attachDash(source){
+      if(viewerVideo.canPlayType('application/dash+xml')){viewerVideo.src=source;viewerVideo.load();return;}
+      if(!window.dashjs)await loadExternalScript('https://cdn.dashjs.org/v4.7.4/dash.all.min.js');
+      if(!window.dashjs?.MediaPlayer)throw new Error('DASH-Wiedergabe wird nicht unterstützt.');
+      activeDash=window.dashjs.MediaPlayer().create();activeDash.initialize(viewerVideo,source,false);
+    }
+    function showVideoError(error){viewerCount.textContent=error?.message||'Video konnte nicht geladen werden. Bitte später erneut versuchen.';}
+    viewerVideo.addEventListener('error',()=>{if(!activeHls&&!activeDash&&viewerVideo.currentSrc)viewerCount.textContent='Video konnte nicht geladen werden. Bitte später erneut versuchen.'});
     const imageButtons=[...root.querySelectorAll('.screenshot-open')];
     let currentImage=0;
     function showImage(index){
       if(!imageButtons.length)return;
       currentImage=(index+imageButtons.length)%imageButtons.length;
       const button=imageButtons[currentImage],img=button.querySelector('img');
-      viewerVideo.pause();viewerVideo.removeAttribute('src');viewerVideo.load();viewerVideo.hidden=true;
+      clearVideoPlayer();viewerVideo.hidden=true;
       viewerImage.src=button.dataset.full||img.src;viewerImage.alt=img.alt;viewerImage.hidden=false;
       viewerTitle.textContent=img.alt;viewerCount.textContent=`${currentImage+1} / ${imageButtons.length}`;
       viewer.querySelector('.media-viewer-prev').hidden=imageButtons.length<2;
@@ -43,14 +92,13 @@ async function init(){
     viewer.querySelector('.media-viewer-prev').addEventListener('click',()=>showImage(currentImage-1));
     viewer.querySelector('.media-viewer-next').addEventListener('click',()=>showImage(currentImage+1));
     root.querySelectorAll('.trailer-open').forEach(button=>button.addEventListener('click',()=>{
-      viewerImage.hidden=true;viewerVideo.hidden=false;viewerVideo.src=button.dataset.video;viewerVideo.load();
-      viewerTitle.textContent=button.dataset.videoTitle||'Gameplay / Trailer';viewerCount.textContent='Video';
       viewer.querySelector('.media-viewer-prev').hidden=true;viewer.querySelector('.media-viewer-next').hidden=true;
       if(!viewer.open)viewer.showModal();viewer.querySelector('.media-viewer-close').focus();
+      attachTrailer(button).catch(showVideoError);
     }));
     viewer.querySelector('.media-viewer-close').addEventListener('click',()=>viewer.close());
     viewer.addEventListener('click',event=>{if(event.target===viewer)viewer.close()});
-    viewer.addEventListener('close',()=>{viewerVideo.pause();viewerVideo.removeAttribute('src');viewerVideo.load();viewerImage.removeAttribute('src')});
+    viewer.addEventListener('close',()=>{clearVideoPlayer();viewerVideo.hidden=true;viewerImage.removeAttribute('src')});
     document.addEventListener('keydown',event=>{if(!viewer.open)return;if(event.key==='ArrowLeft'&&!viewerVideo.hidden){return}if(event.key==='ArrowLeft'){event.preventDefault();showImage(currentImage-1)}if(event.key==='ArrowRight'&&!viewerVideo.hidden){return}if(event.key==='ArrowRight'){event.preventDefault();showImage(currentImage+1)}});
     document.getElementById('favButton').onclick=async()=>{try{const r=await fetch('/api/favorites',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:g.name})});const x=await r.json();if(!r.ok)throw new Error(x.message||'Bitte einloggen.');document.getElementById('favMessage').textContent='Spiel wurde zu deinen Favoriten hinzugefügt.'}catch(e){document.getElementById('favMessage').textContent=e.message}};
   }catch(e){root.innerHTML=`<h2>Keine Spieldetails verfügbar.</h2><p>${esc(e.message)}</p>`}
