@@ -4,9 +4,11 @@ Set OWNER_EMAIL to the exact email used for the owner account.
 Set SUPERDUPERBUNDLE_API_KEY to the partner key (optional but recommended).
 Instant Gaming and G2A adapters are prepared but require approved provider API access.
 """
-import hashlib, hmac, html, json, os, re, secrets, sqlite3, threading, time, urllib.error, urllib.parse, urllib.request
+import hashlib, hmac, html, json, os, re, secrets, sqlite3, threading, time, urllib.error, urllib.parse, urllib.request, smtplib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from datetime import datetime, timezone
+from email.message import EmailMessage
 
 API_BASE = "https://superduperbundle.com/api/v1/lookup/"
 API_KEY = os.environ.get("SUPERDUPERBUNDLE_API_KEY", "").strip()
@@ -22,6 +24,16 @@ CACHE_TTL = 900
 CACHE, CACHE_LOCK = {}, threading.Lock()
 PBKDF2_ROUNDS = 310_000
 SESSION_DAYS = 30
+SMTP_HOST = os.environ.get('SMTP_HOST', '').strip()
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587') or 587)
+SMTP_USER = os.environ.get('SMTP_USER', '').strip()
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '').strip()
+SMTP_FROM = os.environ.get('SMTP_FROM', SMTP_USER).strip()
+SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').strip().lower() not in ('0','false','no')
+APP_BASE_URL = os.environ.get('APP_BASE_URL', 'https://steam-deal-radar-2-0.onrender.com').strip().rstrip('/')
+MAIL_ENABLED = bool(SMTP_HOST and SMTP_FROM)
+PRICE_ALERT_INTERVAL = 6 * 60 * 60
+
 
 def db():
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
@@ -52,7 +64,23 @@ def init_db():
           id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           term TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS account_tokens (
+          token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          purpose TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS price_snapshots (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, game_name TEXT NOT NULL, store_name TEXT NOT NULL,
+          price REAL NOT NULL, currency TEXT NOT NULL DEFAULT 'EUR', snapshot_date TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'SuperDuperBundle',
+          UNIQUE(game_name, store_name, snapshot_date)
+        );
         """)
+        user_cols={row['name'] for row in c.execute('PRAGMA table_info(users)').fetchall()}
+        if 'email_verified' not in user_cols:
+            c.execute('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1')
+        favorite_cols={row['name'] for row in c.execute('PRAGMA table_info(favorites)').fetchall()}
+        for col,definition in (('target_price','REAL'),('alert_currency',"TEXT NOT NULL DEFAULT 'EUR'"),('alert_enabled','INTEGER NOT NULL DEFAULT 0'),('last_alert_price','REAL')):
+            if col not in favorite_cols: c.execute(f'ALTER TABLE favorites ADD COLUMN {col} {definition}')
         if OWNER_EMAIL:
             c.execute("UPDATE users SET role='owner', tier='ultimate' WHERE lower(email)=?", (OWNER_EMAIL,))
 
@@ -68,6 +96,71 @@ def verify_password(password, encoded):
         return hmac.compare_digest(actual, digest_hex)
     except Exception:
         return False
+
+def mail_ready(): return MAIL_ENABLED
+
+def send_email(to_address, subject, body):
+    if not mail_ready(): raise RuntimeError('E-Mail-Versand ist noch nicht eingerichtet. SMTP-Einstellungen fehlen.')
+    message=EmailMessage(); message['Subject']=subject; message['From']=SMTP_FROM; message['To']=to_address; message.set_content(body)
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+        if SMTP_USE_TLS: smtp.starttls()
+        if SMTP_USER: smtp.login(SMTP_USER, SMTP_PASSWORD)
+        smtp.send_message(message)
+
+def create_account_token(user_id, purpose, ttl=3600):
+    token=secrets.token_urlsafe(32); digest=hashlib.sha256(token.encode()).hexdigest()
+    with db() as c:
+        c.execute('DELETE FROM account_tokens WHERE user_id=? AND purpose=?',(user_id,purpose))
+        c.execute('INSERT INTO account_tokens(token_hash,user_id,purpose,expires_at) VALUES(?,?,?,?)',(digest,user_id,purpose,int(time.time())+ttl))
+    return token
+
+def record_price_history(items, source='SuperDuperBundle'):
+    today=datetime.now(timezone.utc).date().isoformat()
+    with db() as c:
+        for item in items or []:
+            if not isinstance(item,dict) or not item.get('name'): continue
+            candidates=[]
+            low_price=item.get('price')
+            if isinstance(low_price,(int,float)) and not isinstance(low_price,bool):
+                candidates.append((item.get('provider_name') or item.get('provider') or 'Niedrigster Preis',low_price,item.get('currency') or 'EUR'))
+            for offer in item.get('offers') or []:
+                if not isinstance(offer,dict): continue
+                value=offer.get('price')
+                if isinstance(value,(int,float)) and not isinstance(value,bool):
+                    candidates.append((offer.get('store_name') or offer.get('provider_name') or offer.get('store') or 'Store',value,offer.get('currency') or item.get('currency') or 'EUR'))
+            for store,price_value,currency in candidates:
+                if price_value < 0 or price_value > 100000: continue
+                c.execute("""INSERT INTO price_snapshots(game_name,store_name,price,currency,snapshot_date,source)
+                  VALUES(?,?,?,?,?,?) ON CONFLICT(game_name,store_name,snapshot_date)
+                  DO UPDATE SET price=excluded.price,currency=excluded.currency,source=excluded.source""",
+                  (str(item['name'])[:160],str(store)[:100],float(price_value),str(currency)[:8],today,source))
+
+def check_price_alerts_once():
+    if not mail_ready(): return
+    with db() as c:
+        rows=c.execute("""SELECT f.user_id,f.game_name,f.target_price,f.alert_currency,f.last_alert_price,u.email,u.username
+          FROM favorites f JOIN users u ON u.id=f.user_id WHERE f.alert_enabled=1 AND f.target_price IS NOT NULL AND u.email_verified=1
+          ORDER BY f.created_at LIMIT 40""").fetchall()
+    for row in rows:
+        try:
+            payload,_=fetch_sdb(row['game_name'],5); games=normalise(payload)
+            match=next((g for g in games if g.get('name','').casefold()==row['game_name'].casefold()),None) or (games[0] if games else None)
+            if not match or not isinstance(match.get('price'),(int,float)): continue
+            price_value=float(match['price']); currency=str(match.get('currency') or 'EUR')
+            if currency.upper()!=str(row['alert_currency'] or 'EUR').upper(): continue
+            if price_value<=float(row['target_price']) and (row['last_alert_price'] is None or price_value<float(row['last_alert_price'])):
+                url=APP_BASE_URL+'/game.html?name='+urllib.parse.quote(row['game_name'])
+                send_email(row['email'],'GameRadar Preisalarm: '+row['game_name'],
+                  f"Hallo {row['username']},\n\n{row['game_name']} kostet jetzt {price_value:.2f} {currency} und liegt damit bei oder unter deinem Wunschpreis von {float(row['target_price']):.2f} {currency}.\n\nSpiel ansehen: {url}\n\nGameRadar")
+                with db() as c: c.execute('UPDATE favorites SET last_alert_price=? WHERE user_id=? AND game_name=?',(price_value,row['user_id'],row['game_name']))
+        except Exception as exc:
+            print('Price alert skipped for %s: %s' % (row['game_name'],exc))
+
+def price_alert_worker():
+    while True:
+        time.sleep(PRICE_ALERT_INTERVAL)
+        try: check_price_alerts_once()
+        except Exception as exc: print('Price alert worker error:',exc)
 
 def json_bytes(payload): return json.dumps(payload, ensure_ascii=False).encode('utf-8')
 def cache_get(key):
@@ -216,14 +309,55 @@ class Handler(SimpleHTTPRequestHandler):
             role='owner' if OWNER_EMAIL and email==OWNER_EMAIL else 'user'; tier='ultimate' if role=='owner' else 'free'
             try:
                 with db() as c:
-                    cur=c.execute('INSERT INTO users(email,username,password_hash,role,tier) VALUES(?,?,?,?,?)',(email,username,password_hash(pw),role,tier)); uid=cur.lastrowid
+                    cur=c.execute('INSERT INTO users(email,username,password_hash,role,tier,email_verified) VALUES(?,?,?,?,?,?)',(email,username,password_hash(pw),role,tier,0 if MAIL_ENABLED else 1)); uid=cur.lastrowid
+                if MAIL_ENABLED:
+                    token=create_account_token(uid,'verify',86400)
+                    try: send_email(email,'GameRadar: E-Mail-Adresse bestätigen',f'Hallo {username},\n\nbitte bestätige deine E-Mail-Adresse über diesen Link:\n{APP_BASE_URL}/account.html?action=verify&token={token}\n\nDer Link ist 24 Stunden gültig.')
+                    except Exception as exc: return self.send_json(503,{'message':'Konto wurde angelegt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Nutze später „Bestätigung erneut senden“.','mail_error':str(exc)})
+                    return self.send_json(201,{'ok':True,'verification_required':True,'message':'Bitte bestätige zuerst deine E-Mail-Adresse. Wir haben dir einen Link geschickt.'})
                 return self.create_session(uid)
             except sqlite3.IntegrityError: return self.send_json(409,{'message':'Für diese E-Mail-Adresse existiert bereits ein Konto. Bitte einloggen.'})
         if path=='/api/login':
             email=str(data.get('email','')).strip().lower(); pw=str(data.get('password',''))
             with db() as c: u=c.execute('SELECT * FROM users WHERE lower(email)=?',(email,)).fetchone()
             if not u or not verify_password(pw,u['password_hash']): return self.send_json(401,{'message':'E-Mail oder Passwort ist falsch.'})
+            if not u['email_verified']: return self.send_json(403,{'message':'Bitte bestätige zuerst deine E-Mail-Adresse. Du kannst die E-Mail erneut anfordern.'})
             return self.create_session(u['id'])
+        if path=='/api/verify-email':
+            token=str(data.get('token','')).strip(); digest=hashlib.sha256(token.encode()).hexdigest()
+            with db() as c:
+                row=c.execute("SELECT user_id FROM account_tokens WHERE token_hash=? AND purpose='verify' AND expires_at>?",(digest,int(time.time()))).fetchone()
+                if not row: return self.send_json(400,{'message':'Der Bestätigungslink ist ungültig oder abgelaufen.'})
+                c.execute('UPDATE users SET email_verified=1 WHERE id=?',(row['user_id'],)); c.execute('DELETE FROM account_tokens WHERE token_hash=?',(digest,))
+            return self.send_json(200,{'ok':True,'message':'E-Mail-Adresse bestätigt. Du kannst dich jetzt anmelden.'})
+        if path=='/api/resend-verification':
+            email=str(data.get('email','')).strip().lower()
+            if not mail_ready(): return self.send_json(503,{'message':'E-Mail-Bestätigung ist noch nicht eingerichtet. SMTP-Einstellungen fehlen.'})
+            with db() as c: u=c.execute('SELECT id,email,username,email_verified FROM users WHERE lower(email)=?',(email,)).fetchone()
+            if u and not u['email_verified']:
+                token=create_account_token(u['id'],'verify',86400)
+                try: send_email(email,'GameRadar: E-Mail-Adresse bestätigen',f"Hallo {u['username']},\n\nBestätige deine E-Mail-Adresse: {APP_BASE_URL}/account.html?action=verify&token={token}\n\nDer Link ist 24 Stunden gültig.")
+                except Exception as exc: return self.send_json(502,{'message':'E-Mail konnte nicht versendet werden: '+str(exc)})
+            return self.send_json(200,{'ok':True,'message':'Falls ein unbestätigtes Konto existiert, wurde eine neue E-Mail versendet.'})
+        if path=='/api/request-password-reset':
+            email=str(data.get('email','')).strip().lower()
+            if not mail_ready(): return self.send_json(503,{'message':'Passwort-Wiederherstellung ist noch nicht eingerichtet. SMTP-Einstellungen fehlen.'})
+            with db() as c: u=c.execute('SELECT id,email,username,email_verified FROM users WHERE lower(email)=?',(email,)).fetchone()
+            if u and u['email_verified']:
+                token=create_account_token(u['id'],'reset',3600)
+                try: send_email(email,'GameRadar: Passwort zurücksetzen',f"Hallo {u['username']},\n\nDu kannst dein Passwort über diesen Link zurücksetzen: {APP_BASE_URL}/account.html?action=reset&token={token}\n\nDer Link ist eine Stunde gültig. Wenn du das nicht angefordert hast, ignoriere diese E-Mail.")
+                except Exception as exc: return self.send_json(502,{'message':'E-Mail konnte nicht versendet werden: '+str(exc)})
+            return self.send_json(200,{'ok':True,'message':'Falls ein bestätigtes Konto mit dieser Adresse existiert, wurde ein Link versendet.'})
+        if path=='/api/reset-password':
+            token=str(data.get('token','')).strip(); password=str(data.get('password',''))
+            if len(password)<10 or len(password)>200: return self.send_json(400,{'message':'Das neue Passwort muss mindestens 10 Zeichen lang sein.'})
+            digest=hashlib.sha256(token.encode()).hexdigest()
+            with db() as c:
+                row=c.execute("SELECT user_id FROM account_tokens WHERE token_hash=? AND purpose='reset' AND expires_at>?",(digest,int(time.time()))).fetchone()
+                if not row: return self.send_json(400,{'message':'Der Link ist ungültig oder abgelaufen.'})
+                c.execute('UPDATE users SET password_hash=? WHERE id=?',(password_hash(password),row['user_id']))
+                c.execute('DELETE FROM sessions WHERE user_id=?',(row['user_id'],)); c.execute('DELETE FROM account_tokens WHERE token_hash=?',(digest,))
+            return self.send_json(200,{'ok':True,'message':'Passwort geändert. Du kannst dich jetzt anmelden.'})
         if path=='/api/profile':
             u=self.current_user()
             if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
@@ -264,6 +398,19 @@ class Handler(SimpleHTTPRequestHandler):
             if not name: return self.send_json(400,{'message':'Spielname fehlt.'})
             with db() as c:
                 if data.get('remove'): c.execute('DELETE FROM favorites WHERE user_id=? AND game_name=?',(u['id'],name))
+                elif 'target_price' in data or 'alert_enabled' in data:
+                    enabled=bool(data.get('alert_enabled')); target=data.get('target_price')
+                    if enabled and not mail_ready(): return self.send_json(503,{'message':'Preisalarme benötigen noch eingerichteten E-Mail-Versand (SMTP).'})
+                    try: target_value=float(target) if target not in (None,'') else None
+                    except (TypeError,ValueError): return self.send_json(400,{'message':'Bitte einen gültigen Wunschpreis eingeben.'})
+                    if enabled and (target_value is None or target_value<=0 or target_value>10000): return self.send_json(400,{'message':'Der Wunschpreis muss größer als 0 und höchstens 10.000 sein.'})
+                    count=c.execute('SELECT COUNT(*) FROM favorites WHERE user_id=? AND alert_enabled=1',(u['id'],)).fetchone()[0]
+                    exists=c.execute('SELECT 1 FROM favorites WHERE user_id=? AND game_name=?',(u['id'],name)).fetchone()
+                    if enabled and not exists and count>=10: return self.send_json(400,{'message':'Maximal 10 aktive Preisalarme pro Konto.'})
+                    c.execute("""INSERT INTO favorites(user_id,game_name,target_price,alert_currency,alert_enabled,last_alert_price)
+                      VALUES(?,?,?,?,?,NULL) ON CONFLICT(user_id,game_name) DO UPDATE SET target_price=excluded.target_price,
+                      alert_currency=excluded.alert_currency,alert_enabled=excluded.alert_enabled,last_alert_price=NULL""",
+                      (u['id'],name,target_value,str(data.get('currency') or 'EUR')[:8],1 if enabled else 0))
                 else: c.execute('INSERT OR IGNORE INTO favorites(user_id,game_name) VALUES(?,?)',(u['id'],name))
             return self.send_json(200,{'ok':True})
         return self.send_json(404,{'message':'Nicht gefunden.'})
@@ -327,6 +474,7 @@ class Handler(SimpleHTTPRequestHandler):
                     attribution=payload.get('attribution') or attribution
                 except Exception: pass
             if not steam and not sdb_game: return self.send_json(502,{'message':'Spielinformationen sind gerade nicht erreichbar. Bitte später erneut versuchen.'})
+            if sdb_game: record_price_history([sdb_game],'SuperDuperBundle')
             game={'name':(steam or {}).get('name') or (sdb_game or {}).get('name'),
                   'image':(steam or {}).get('header_image') or (sdb_game or {}).get('image') or '',
                   'price':(steam or {}).get('price') if steam else (sdb_game or {}).get('price'),
@@ -338,8 +486,13 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path=='/api/favorites':
             u=self.current_user()
             if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
-            with db() as c: rows=c.execute('SELECT game_name,created_at FROM favorites WHERE user_id=? ORDER BY created_at DESC',(u['id'],)).fetchall()
-            return self.send_json(200,{'items':[dict(x) for x in rows]})
+            with db() as c: rows=c.execute('SELECT game_name,created_at,target_price,alert_currency,alert_enabled,last_alert_price FROM favorites WHERE user_id=? ORDER BY created_at DESC',(u['id'],)).fetchall()
+            return self.send_json(200,{'items':[dict(x) for x in rows],'price_alerts_available':mail_ready()})
+        if parsed.path=='/api/price-history':
+            name=(params.get('name') or [''])[0].strip()[:160]
+            if not name: return self.send_json(400,{'message':'Spielname fehlt.'})
+            with db() as c: rows=c.execute('SELECT store_name,price,currency,snapshot_date,source FROM price_snapshots WHERE lower(game_name)=lower(?) ORDER BY snapshot_date ASC,store_name ASC LIMIT 500',(name,)).fetchall()
+            return self.send_json(200,{'items':[dict(x) for x in rows],'message':'Die Preishistorie beginnt mit dem ersten erfassten Preis nach Aktivierung.' if not rows else None})
         if parsed.path=='/api/search':
             platform=(params.get('platform') or ['steam'])[0].strip().lower()
             if platform == 'instantgaming':
@@ -400,13 +553,16 @@ class Handler(SimpleHTTPRequestHandler):
                 u=self.current_user()
                 if u:
                     with db() as c: c.execute('INSERT INTO search_history(user_id,term) VALUES(?,?)',(u['id'],term[:120]))
+                record_price_history(data.get('items') or [],'Steam Store' if data.get('source')=='Steam Store' else 'SuperDuperBundle')
                 return self.send_json(200,data)
             except Exception as e: return self.send_json(502,{'message':str(e)})
         if parsed.path=='/api/health':
-            return self.send_json(200,{'ok':True,'provider':'SuperDuperBundle','api_key_configured':bool(API_KEY),'database':'sqlite','database_path':DB_PATH,'persistent_disk_required':True,'platform_search':['steam','epic','gog'],'coming_soon_platforms':['instantgaming','g2a','xbox','psn'],'instant_gaming_ui':True,'instant_gaming_api_configured':bool(INSTANT_GAMING_RAPIDAPI_KEY and INSTANT_GAMING_RAPIDAPI_HOST),'g2a_ui':True,'g2a_credentials_configured':bool(G2A_CLIENT_ID and G2A_CLIENT_SECRET),'subscriptions_ui':True,'profile_ui':True,'game_detail_ui':True,'owner_dashboard':True,'payments_enabled':False})
+            return self.send_json(200,{'ok':True,'provider':'SuperDuperBundle','api_key_configured':bool(API_KEY),'database':'sqlite','database_path':DB_PATH,'persistent_disk_required':True,'platform_search':['steam','epic','gog'],'coming_soon_platforms':['instantgaming','g2a','xbox','psn'],'instant_gaming_ui':True,'instant_gaming_api_configured':bool(INSTANT_GAMING_RAPIDAPI_KEY and INSTANT_GAMING_RAPIDAPI_HOST),'g2a_ui':True,'g2a_credentials_configured':bool(G2A_CLIENT_ID and G2A_CLIENT_SECRET),'subscriptions_ui':True,'profile_ui':True,'game_detail_ui':True,'owner_dashboard':True,'payments_enabled':False,'email_delivery_configured':mail_ready(),'price_alerts_available':mail_ready(),'price_history':'collecting_on_search'})
         return super().do_GET()
 
 init_db()
+if MAIL_ENABLED:
+    threading.Thread(target=price_alert_worker,daemon=True,name='gameradar-price-alerts').start()
 if __name__=='__main__':
     port=int(os.environ.get('PORT','8000')); server=ThreadingHTTPServer(('0.0.0.0',port),Handler)
     print(f'GameRadar listening on {port}; database={DB_PATH}; SDB key configured={bool(API_KEY)}; IG configured={bool(INSTANT_GAMING_RAPIDAPI_KEY and INSTANT_GAMING_RAPIDAPI_HOST)}; G2A credentials configured={bool(G2A_CLIENT_ID and G2A_CLIENT_SECRET)}')

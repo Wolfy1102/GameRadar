@@ -172,10 +172,12 @@ authForm?.addEventListener('submit', async e => {
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.message || 'Anmeldung fehlgeschlagen.');
+    if (d.verification_required) { authMessage.textContent = d.message || 'Bitte E-Mail bestätigen.'; return; }
     closeAuth(); authForm.reset(); await refreshAccount();
   } catch (err) { authMessage.textContent = err.message; }
   finally { authSubmit.disabled = false; }
 });
+document.getElementById('resendVerification')?.addEventListener('click', async () => { const email=document.getElementById('authEmail').value.trim(); if(!email){authMessage.textContent='Bitte zuerst deine E-Mail-Adresse eintragen.';return;} try{const r=await fetch('/api/resend-verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Versand fehlgeschlagen.');authMessage.textContent=d.message;}catch(e){authMessage.textContent=e.message;} });
 refreshAccount();
 
 

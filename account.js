@@ -1,0 +1,8 @@
+const qs=new URLSearchParams(location.search),action=qs.get('action'),token=qs.get('token');
+const status=document.getElementById('accountActionStatus'),forgot=document.getElementById('forgotForm'),reset=document.getElementById('resetForm');
+async function api(path,payload){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw new Error(d.message||'Anfrage fehlgeschlagen.');return d}
+function message(text,error=false){status.textContent=text;status.className=error?'error-state':''}
+if(action==='verify'&&token){api('/api/verify-email',{token}).then(d=>message(d.message+' Du kannst dich jetzt auf der Startseite anmelden.')).catch(e=>message(e.message,true));}
+else if(action==='reset'&&token){status.textContent='Lege ein neues Passwort fest.';reset.hidden=false;reset.addEventListener('submit',async e=>{e.preventDefault();const a=document.getElementById('newPassword').value,b=document.getElementById('confirmPassword').value;if(a!==b){message('Die Passwörter stimmen nicht überein.',true);return}try{const d=await api('/api/reset-password',{token,password:a});reset.hidden=true;message(d.message+' Zur Startseite wechseln.')}catch(err){message(err.message,true)}})}
+else if(action==='forgot'){status.textContent='';forgot.hidden=false;forgot.addEventListener('submit',async e=>{e.preventDefault();const button=forgot.querySelector('button');button.disabled=true;try{const d=await api('/api/request-password-reset',{email:document.getElementById('forgotEmail').value});forgot.hidden=true;message(d.message)}catch(err){message(err.message,true)}finally{button.disabled=false}})}
+else{message('Ungültiger oder fehlender Konto-Link.');}

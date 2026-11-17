@@ -73,3 +73,11 @@ Start Command: `python server.py`. Eine persistente Render Disk mit Mount Path `
 - Spielseiten laden über `GET /api/game?appid=...` bzw. `GET /api/game?name=...` Beschreibung, Genres, Entwickler, Release-Datum, Screenshots und verfügbare Trailer aus den Steam-Store-Appdetails.
 - Die Detailseite zeigt Preisangebote aus SuperDuperBundle nur dann, wenn diese in der Antwort vorhanden sind. Steam-Metadaten und Preisvergleichsangebote sind getrennte Datenquellen.
 - Die Steam-Store-Endpunkte sind öffentlich erreichbare Store-Endpunkte, keine zugesicherte kommerzielle API. Vor einem kostenpflichtigen Betrieb müssen Nutzungsbedingungen und Rechte für die angezeigten Medien geprüft werden.
+
+
+## Zusätzliche Konto- und Preisfunktionen
+
+- E-Mail-Bestätigung und Passwort-Zurücksetzen benötigen SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD und SMTP_FROM in der Hosting-Umgebung. Ohne SMTP bleiben bestehende Registrierungsabläufe erhalten; die E-Mail-Funktionen und Preisalarme werden nicht als aktiv angezeigt.
+- Preisalarme prüfen gespeicherte Wunschpreise alle sechs Stunden, solange der Webserver läuft. Bei schlafenden/angehaltenen Hosting-Instanzen kann sich die Prüfung verzögern.
+- Die Preishistorie wird ab der ersten erfassten Suche aufgebaut; ältere Preise werden nicht rückwirkend erfunden.
+- Impressum und Datenschutzhinweise sind Vorlagen. Vor Veröffentlichung müssen alle Platzhalter mit korrekten Angaben ersetzt und rechtlich geprüft werden.
