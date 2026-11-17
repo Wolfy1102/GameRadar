@@ -23,9 +23,9 @@
     <nav class="main-nav" aria-label="Hauptnavigation">
       <a class="active" href="#discover">Discover</a>
       <a href="#platforms">Platforms</a>
-      <a href="#deals">Top Deals</a>
+      <a href="#deals">Top Deals</a><a href="#plans">Abos</a>
     </nav>
-    <div class="top-status"><span class="status-dot"></span> RADAR ONLINE</div>
+    <div class="account-area"><button class="login-button" id="accountButton" type="button">LOGIN / REGISTER</button><span class="top-status"><span class="status-dot"></span> RADAR ONLINE</span></div>
   </header>
 
   <main>
@@ -41,21 +41,22 @@
         </select>
         <button id="searchButton" type="submit">SEARCH <span>↗</span></button>
       </form>
-      <div class="search-hint"><span>↳</span> Suche aktuell im Steam-Katalog · weitere Plattformen folgen</div>
+      <div class="search-hint"><span>↳</span> Suchbar: Steam, Epic Games und GOG · Instant Gaming und G2A folgen nach Freigabe</div>
     </section>
 
     <section class="platform-section" id="platforms">
       <div class="section-heading">
         <div><div class="eyebrow">THE GAMING UNIVERSE</div><h2>Choose your <span>platform.</span></h2></div>
-        <span class="section-note">MORE PLATFORMS COMING</span>
+        <span class="section-note">PC STORES, KEY SHOPS & CONSOLES</span>
       </div>
       <div class="platform-grid">
-        <div class="platform-card platform-active"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>Deals live</small></span><span class="live-pill">LIVE</span></div>
-        <div class="platform-card"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol xbox-symbol">X</span><span><b>Xbox</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol ps-symbol">P</span><span><b>PlayStation</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
-        <div class="platform-card"><span class="platform-symbol nintendo-symbol">N</span><span><b>Nintendo</b><small>Coming soon</small></span><span class="soon-pill">SOON</span></div>
+        <button class="platform-card platform-active" type="button" data-platform="steam"><span class="platform-symbol steam-symbol">S</span><span><b>Steam</b><small>PC-Angebote</small></span><span class="live-pill">LIVE</span></button>
+        <button class="platform-card" type="button" data-platform="epic"><span class="platform-symbol epic-symbol">E</span><span><b>Epic Games</b><small>Über den bestehenden Datenpartner suchbar</small></span><span class="live-pill">SUCHBAR</span></button>
+        <button class="platform-card" type="button" data-platform="gog"><span class="platform-symbol gog-symbol">G</span><span><b>GOG</b><small>Über den bestehenden Datenpartner suchbar</small></span><span class="live-pill">SUCHBAR</span></button>
+        <button class="platform-card" type="button" data-platform="instantgaming"><span class="platform-symbol gog-symbol">IG</span><span><b>Instant Gaming</b><small>API-Freigabe und technische Angaben ausstehend</small></span><span class="soon-pill">COMING SOON</span></button>
+        <button class="platform-card" type="button" data-platform="g2a"><span class="platform-symbol epic-symbol">G2</span><span><b>G2A</b><small>API-Freigabe und technische Angaben ausstehend</small></span><span class="soon-pill">COMING SOON</span></button>
+        <button class="platform-card" type="button" data-platform="xbox"><span class="platform-symbol epic-symbol">X</span><span><b>Xbox</b><small>API-Freigabe und technische Angaben ausstehend</small></span><span class="soon-pill">COMING SOON</span></button>
+        <button class="platform-card" type="button" data-platform="psn"><span class="platform-symbol gog-symbol">PS</span><span><b>PlayStation</b><small>API-Freigabe und technische Angaben ausstehend</small></span><span class="soon-pill">COMING SOON</span></button>
       </div>
     </section>
 
@@ -68,9 +69,32 @@
         <div class="empty-state"><div class="radar-loader"><span></span><i></i></div><h3>Ready when you are.</h3><p>Gib oben einen Spieletitel ein und starte den Radar.</p></div>
       </div>
     </section>
+
+    <section class="plans-section" id="plans">
+      <div class="section-heading"><div><div class="eyebrow">LEVEL UP YOUR RADAR</div><h2>Choose your <span>plan.</span></h2></div><span class="section-note">ABOS · ZAHLUNG NOCH NICHT AKTIV</span></div>
+      <div class="plans-grid">
+        <article class="plan-card"><div class="plan-kicker">TIER 1</div><h3>Radar</h3><div class="plan-price">5 €<small>/ Monat</small></div><ul><li>Spielpreise ansehen</li><li>Spiele suchen</li><li>Basis-Angebote entdecken</li></ul><button class="plan-button" type="button" disabled>Demnächst verfügbar</button></article>
+        <article class="plan-card plan-featured"><div class="plan-kicker">TIER 2 · BELIEBT</div><h3>Radar Plus</h3><div class="plan-price">10 €<small>/ Monat</small></div><ul><li>Alle Tier-1-Funktionen</li><li>Preise vergleichen</li><li>Erweiterte Filter & Multitool</li></ul><button class="plan-button" type="button" disabled>Demnächst verfügbar</button></article>
+        <article class="plan-card"><div class="plan-kicker">TIER 3</div><h3>Radar Ultimate</h3><div class="plan-price">30 €<small>/ Monat</small></div><ul><li>Alle Tier-2-Funktionen</li><li>KI-Assistent geplant</li><li>Store-übergreifende Suche geplant</li></ul><button class="plan-button" type="button" disabled>Demnächst verfügbar</button></article>
+      </div>
+      <p class="plans-note">Die Preise zeigen dein geplantes Abo-Modell. Es werden noch keine Zahlungen ausgelöst und kein Tarif automatisch gebucht. Owner-Konten behalten ihre Ultimate-Rechte.</p>
+    </section>
   </main>
 
-  <footer><a class="brand footer-brand" href="/"><span class="brand-mark"><span></span><i></i></span><span>GAME<span>RADAR</span></span></a><p>EVERY GAME. EVERY PLATFORM. ONE RADAR.</p><span>© 2026 GAMERADAR</span></footer>
+  <footer><a class="brand footer-brand" href="/"><span class="brand-mark"><span></span><i></i></span><span>GAME<span>RADAR</span></span></a><p>EVERY GAME. EVERY PLATFORM. ONE RADAR.</p><span>© 2026 GAMERADAR</span><p>Prices by <a href="https://superduperbundle.com/" target="_blank" rel="noopener noreferrer">SuperDuperBundle</a></p>
+</footer>
+
+  <div class="auth-backdrop" id="authBackdrop" hidden>
+    <section class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button class="auth-close" id="authClose" type="button" aria-label="Schließen">×</button>
+      <div class="eyebrow">YOUR GAMERADAR ACCOUNT</div><h2 id="authTitle">Willkommen zurück.</h2>
+      <div class="auth-tabs"><button type="button" class="auth-tab active" data-mode="login">Login</button><button type="button" class="auth-tab" data-mode="register">Registrieren</button></div>
+      <form id="authForm"><label for="authUsername" id="usernameLabel" hidden>Benutzername</label><input id="authUsername" maxlength="32" placeholder="Benutzername" autocomplete="username" hidden>
+      <label for="authEmail">E-Mail</label><input id="authEmail" type="email" required maxlength="254" placeholder="name@example.com" autocomplete="email">
+      <label for="authPassword">Passwort</label><input id="authPassword" type="password" required minlength="10" placeholder="Mindestens 10 Zeichen" autocomplete="current-password">
+      <button class="auth-submit" type="submit" id="authSubmit">Einloggen</button><p id="authMessage" role="status"></p></form>
+    </section>
+  </div>
   <script src="/script.js"></script>
 </body>
 </html>
