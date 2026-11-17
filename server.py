@@ -4,7 +4,7 @@ Set OWNER_EMAIL to the exact email used for the owner account.
 Set SUPERDUPERBUNDLE_API_KEY to the partner key (optional but recommended).
 Instant Gaming and G2A adapters are prepared but require approved provider API access.
 """
-import hashlib, hmac, json, os, secrets, sqlite3, threading, time, urllib.error, urllib.parse, urllib.request
+import hashlib, hmac, html, json, os, re, secrets, sqlite3, threading, time, urllib.error, urllib.parse, urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -95,6 +95,75 @@ def fetch_sdb(term, limit=5):
         if e.code in (401,403): raise RuntimeError('API-Schlüssel ungültig oder Zugriff nicht erlaubt. Prüfe SUPERDUPERBUNDLE_API_KEY in Render.')
         raise RuntimeError(f'SuperDuperBundle HTTP {e.code}: {body[:300]}')
     except (urllib.error.URLError, TimeoutError): raise RuntimeError('SuperDuperBundle ist momentan nicht erreichbar.')
+
+def fetch_json_url(url, timeout=18):
+    req=urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 (compatible; GameRadar/2.0)','Accept':'application/json'})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return json.loads(response.read().decode('utf-8','replace'))
+
+def steam_search(term, country='de', limit=10):
+    query=urllib.parse.urlencode({'term':term,'l':'german','cc':country})
+    payload=fetch_json_url('https://store.steampowered.com/api/storesearch/?'+query)
+    out=[]
+    for game in (payload.get('items') or [])[:max(1,min(limit,10))]:
+        if not isinstance(game,dict) or not game.get('id'): continue
+        price_data=game.get('price') or {}
+        final=price_data.get('final')
+        out.append({'name':game.get('name') or 'Unbekanntes Spiel','appid':game.get('id'),
+          'image':game.get('tiny_image') or f"https://cdn.akamai.steamstatic.com/steam/apps/{game.get('id')}/header.jpg",
+          'price':(float(final)/100 if final is not None else None),'base':(float(price_data.get('initial'))/100 if price_data.get('initial') is not None else None),
+          'currency':price_data.get('currency') or 'EUR','discount':price_data.get('discount_percent') or 0,
+          'provider':'steam','provider_name':'Steam Store','url':f"https://store.steampowered.com/app/{game.get('id')}/",
+          'offers':[],'store_count':1,'offer_count':1 if final is not None else 0,'source':'Steam Store'})
+    return out
+
+def steam_app_details(appid, country='de'):
+    query=urllib.parse.urlencode({'appids':str(int(appid)),'l':'german','cc':country})
+    payload=fetch_json_url('https://store.steampowered.com/api/appdetails?'+query)
+    entry=payload.get(str(int(appid))) or {}
+    if not entry.get('success') or not isinstance(entry.get('data'),dict): return None
+    d=entry['data']
+    def clean_text(value):
+        value=html.unescape(re.sub(r'<[^>]*>', ' ', str(value or '')))
+        return re.sub(r'\s+',' ',value).strip()
+    po=d.get('price_overview') or {}
+    screenshots=[{'thumb':x.get('path_thumbnail'),'full':x.get('path_full')} for x in (d.get('screenshots') or []) if isinstance(x,dict)]
+    movies=[]
+    for m in (d.get('movies') or []):
+        if not isinstance(m,dict): continue
+        movies.append({'name':m.get('name') or 'Gameplay / Trailer','thumbnail':m.get('thumbnail') or '',
+          'mp4':(m.get('mp4') or {}).get('480') or (m.get('mp4') or {}).get('max') or '',
+          'webm':(m.get('webm') or {}).get('480') or (m.get('webm') or {}).get('max') or ''})
+    release=d.get('release_date') or {}
+    return {'appid':int(appid),'name':d.get('name') or 'Unbekanntes Spiel','type':d.get('type') or '',
+      'short_description':clean_text(d.get('short_description')),'description':clean_text(d.get('about_the_game') or d.get('detailed_description')),
+      'header_image':d.get('header_image') or '', 'background':d.get('background') or '',
+      'developers':d.get('developers') or [],'publishers':d.get('publishers') or [],
+      'genres':[x.get('description') for x in (d.get('genres') or []) if isinstance(x,dict)],
+      'release_date':release.get('date') or '', 'coming_soon':bool(release.get('coming_soon')),
+      'platforms':d.get('platforms') or {},'screenshots':screenshots,'movies':movies,
+      'price':(float(po.get('final',0))/100 if po else None),'base':(float(po.get('initial',0))/100 if po else None),
+      'discount':po.get('discount_percent',0),'currency':po.get('currency') or 'EUR',
+      'steam_url':f'https://store.steampowered.com/app/{int(appid)}/'}
+
+def steam_suggestions(country='de'):
+    query=urllib.parse.urlencode({'cc':country,'l':'german'})
+    payload=fetch_json_url('https://store.steampowered.com/api/featuredcategories/?'+query)
+    out=[]; seen=set()
+    for category in ('top_sellers','specials','new_releases','coming_soon'):
+        section=payload.get(category) or {}
+        for game in (section.get('items') or []):
+            appid=game.get('id')
+            if not appid or appid in seen: continue
+            seen.add(appid); price_data=game.get('final_price')
+            out.append({'name':game.get('name') or 'Unbekanntes Spiel','appid':appid,
+              'image':game.get('header_image') or f'https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg',
+              'price':(float(price_data)/100 if price_data is not None else None),
+              'currency':'EUR','discount':game.get('discount_percent') or 0,'provider':'steam',
+              'provider_name':'Steam Store','url':f'https://store.steampowered.com/app/{appid}/',
+              'category':category,'source':'Steam Store'})
+            if len(out)>=16: return out
+    return out
 
 def normalise(payload):
     out=[]
@@ -215,17 +284,55 @@ class Handler(SimpleHTTPRequestHandler):
             if not u or u.get('role')!='owner': return self.send_json(403,{'message':'Owner-Berechtigung erforderlich.'})
             with db() as c: rows=c.execute('SELECT id,email,username,role,tier,created_at FROM users ORDER BY created_at DESC').fetchall()
             return self.send_json(200,{'items':[dict(x) for x in rows]})
+        if parsed.path=='/api/suggestions':
+            country=(params.get('country') or ['de'])[0].lower()
+            if country not in ('de','us','gb','fr','es','it','pl','nl'): country='de'
+            cached=cache_get(('steam_suggestions',country))
+            try:
+                items=cached if cached is not None else steam_suggestions(country)
+                if cached is None: cache_set(('steam_suggestions',country),items)
+                return self.send_json(200,{'items':items,'source':'Steam Store','cached_for_seconds':CACHE_TTL})
+            except Exception as e:
+                return self.send_json(502,{'items':[],'message':f'Spielvorschläge konnten gerade nicht geladen werden: {str(e)}'})
+        if parsed.path=='/api/steam/details':
+            appid=(params.get('appid') or [''])[0]
+            try:
+                if not appid.isdigit(): return self.send_json(400,{'message':'Ungültige Steam-App-ID.'})
+                country=(params.get('country') or ['de'])[0].lower()
+                details=steam_app_details(appid,country)
+                if not details: return self.send_json(404,{'message':'Keine Steam-Spielinformationen gefunden.'})
+                return self.send_json(200,{'game':details,'source':'Steam Store'})
+            except Exception as e: return self.send_json(502,{'message':f'Steam-Spielinformationen nicht erreichbar: {str(e)}'})
         if parsed.path=='/api/game':
             name=(params.get('name') or [''])[0].strip()
-            if not name: return self.send_json(400,{'message':'Spielname fehlt.'})
+            appid=(params.get('appid') or [''])[0].strip()
+            country=(params.get('country') or ['de'])[0].lower()
+            if not name and not appid: return self.send_json(400,{'message':'Spielname fehlt.'})
+            steam=None
             try:
-                payload,remaining=fetch_sdb(name,5)
-                items=normalise(payload)
-                exact=next((x for x in items if x.get('name','').casefold()==name.casefold()),None)
-                game=exact or (items[0] if items else None)
-                if not game: return self.send_json(404,{'message':'Keine Spieldetails gefunden.'})
-                return self.send_json(200,{'game':game,'attribution':payload.get('attribution') or {'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'}})
-            except Exception as e: return self.send_json(502,{'message':str(e)})
+                if appid.isdigit(): steam=steam_app_details(appid,country)
+                elif name:
+                    found=steam_search(name,country,10)
+                    match=next((x for x in found if x.get('name','').casefold()==name.casefold()),None)
+                    candidate=match or (found[0] if found else None)
+                    if candidate: steam=steam_app_details(candidate['appid'],country)
+            except Exception: steam=None
+            sdb_game=None; attribution={'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'}
+            if name:
+                try:
+                    payload,remaining=fetch_sdb(name,5); items=normalise(payload)
+                    sdb_game=next((x for x in items if x.get('name','').casefold()==name.casefold()),None) or (items[0] if items else None)
+                    attribution=payload.get('attribution') or attribution
+                except Exception: pass
+            if not steam and not sdb_game: return self.send_json(502,{'message':'Spielinformationen sind gerade nicht erreichbar. Bitte später erneut versuchen.'})
+            game={'name':(steam or {}).get('name') or (sdb_game or {}).get('name'),
+                  'image':(steam or {}).get('header_image') or (sdb_game or {}).get('image') or '',
+                  'price':(steam or {}).get('price') if steam else (sdb_game or {}).get('price'),
+                  'currency':(steam or {}).get('currency') if steam else (sdb_game or {}).get('currency','EUR'),
+                  'offers':(sdb_game or {}).get('offers') or [],'store_count':(sdb_game or {}).get('store_count',0),
+                  'offer_count':(sdb_game or {}).get('offer_count',0),'url':(sdb_game or {}).get('url') or (steam or {}).get('steam_url',''),
+                  'steam':steam,'source':'Steam Store + SuperDuperBundle' if steam and sdb_game else ('Steam Store' if steam else 'SuperDuperBundle')}
+            return self.send_json(200,{'game':game,'attribution':attribution})
         if parsed.path=='/api/favorites':
             u=self.current_user()
             if not u: return self.send_json(401,{'message':'Bitte zuerst einloggen.'})
@@ -254,10 +361,14 @@ class Handler(SimpleHTTPRequestHandler):
             except ValueError: limit=5
             key=(term.casefold(),limit); data=cache_get(key)
             try:
+                sdb_error=None
                 if data is None:
-                    payload,remaining=fetch_sdb(term,limit); items=normalise(payload)
-                    data={'items':items,'count':len(items),'attribution':payload.get('attribution') or {'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'},'cached_for_seconds':CACHE_TTL,'rate_limit_remaining':remaining}
-                    cache_set(key,data)
+                    try:
+                        payload,remaining=fetch_sdb(term,limit); items=normalise(payload)
+                        data={'items':items,'count':len(items),'attribution':payload.get('attribution') or {'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'},'cached_for_seconds':CACHE_TTL,'rate_limit_remaining':remaining}
+                        cache_set(key,data)
+                    except Exception as e:
+                        sdb_error=e; data={'items':[],'count':0,'attribution':{'text':'Prices by SuperDuperBundle','url':'https://superduperbundle.com/'}}
                 if platform in ('steam','epic','gog'):
                     def matches_platform(item):
                         offers=item.get('offers') or []
@@ -267,13 +378,23 @@ class Handler(SimpleHTTPRequestHandler):
                             store=str(offer.get('store') or offer.get('provider') or '').lower()
                             store_name=str(offer.get('store_name') or offer.get('provider_name') or '').lower()
                             hay=' '.join((drm,store,store_name))
-                            if platform=='steam' and ('steam' in hay): return True
-                            if platform=='epic' and ('epic' in hay): return True
-                            if platform=='gog' and ('gog' in hay): return True
+                            if platform=='steam' and 'steam' in hay: return True
+                            if platform=='epic' and 'epic' in hay: return True
+                            if platform=='gog' and 'gog' in hay: return True
                         return False
                     data=dict(data)
-                    data['items']=[item for item in data['items'] if matches_platform(item)]
+                    data['items']=[item for item in data.get('items',[]) if matches_platform(item)]
                     data['count']=len(data['items'])
+                    if platform=='steam' and not data['items']:
+                        try:
+                            country=(params.get('country') or ['de'])[0].lower()
+                            steam_items=steam_search(term,country,limit)
+                            data={'items':steam_items,'count':len(steam_items),
+                                  'attribution':{'text':'Steam Store','url':'https://store.steampowered.com/'},'source':'Steam Store'}
+                        except Exception as steam_error:
+                            if sdb_error: raise RuntimeError(f'Suche derzeit nicht verfügbar. SuperDuperBundle: {sdb_error} Steam: {steam_error}')
+                            raise RuntimeError(f'Keine Steam-Treffer gefunden; Steam Store nicht erreichbar: {steam_error}')
+                if not data.get('items') and sdb_error and platform!='steam': raise sdb_error
                 u=self.current_user()
                 if u:
                     with db() as c: c.execute('INSERT INTO search_history(user_id,term) VALUES(?,?)',(u['id'],term[:120]))

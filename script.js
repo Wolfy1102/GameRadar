@@ -3,6 +3,7 @@ const regionSelect = document.getElementById("region");
 const searchForm = document.getElementById("searchForm");
 const searchButton = document.getElementById("searchButton");
 const gamesContainer = document.getElementById("games");
+const suggestedGamesContainer = document.getElementById('suggestedGames');
 let selectedPlatform = "steam";
 const initialQuery = new URLSearchParams(location.search).get('q');
 if (initialQuery) searchInput.value = initialQuery;
@@ -42,7 +43,7 @@ function renderGames(items) {
     const discount = Number(item.discount);
     const discountBadge = Number.isFinite(discount) && discount > 0 ? `<span class="deal-badge">-${discount}%</span>` : "";
     const link = /^https:\/\//i.test(item.url || "") ? item.url : "#";
-    const detailUrl = `/game.html?name=${encodeURIComponent(item.name || '')}`;
+    const detailUrl = `/game.html?${item.appid ? `appid=${encodeURIComponent(item.appid)}&` : ''}name=${encodeURIComponent(item.name || '')}`;
     return `<article class="game-card" data-detail="${escapeHtml(detailUrl)}">
       <a class="game-art" href="${escapeHtml(detailUrl)}" aria-label="${name} öffnen">${discountBadge}<img class="game-image" src="${image}" alt="${name}" loading="lazy" onerror="this.style.display='none'"></a>
       <div class="game-info"><div class="store-label">${escapeHtml(provider)}</div><h3 title="${name}"><a href="${escapeHtml(detailUrl)}">${name}</a></h3>
@@ -61,6 +62,34 @@ function renderGames(items) {
     } catch (e) { alert(e.message); }
   }));
 }
+function renderSuggestions(items) {
+  if (!suggestedGamesContainer) return;
+  if (!items.length) {
+    suggestedGamesContainer.innerHTML = '<div class="empty-state"><h3>Gerade keine Vorschläge verfügbar.</h3><p>Die Suche funktioniert weiterhin über das Suchfeld.</p></div>';
+    return;
+  }
+  suggestedGamesContainer.innerHTML = items.slice(0,12).map(item => {
+    const name=escapeHtml(item.name), image=escapeHtml(item.image||''),
+      detailUrl=`/game.html?appid=${encodeURIComponent(item.appid)}&name=${encodeURIComponent(item.name||'')}`;
+    const tag=({top_sellers:'Bestseller',specials:'Angebot',new_releases:'Neu erschienen',coming_soon:'Demnächst'})[item.category]||'Steam-Tipp';
+    return `<article class="game-card suggestion-card"><a class="game-art" href="${detailUrl}"><img class="game-image" src="${image}" alt="${name}" loading="lazy" onerror="this.style.display='none'"></a><div class="game-info"><div class="store-label">${tag}</div><h3><a href="${detailUrl}">${name}</a></h3><div class="game-bottom"><span class="game-price">${escapeHtml(formatPrice(item))}</span><a class="game-link" href="${detailUrl}">DETAILS ↗</a></div></div></article>`;
+  }).join('');
+}
+async function loadSuggestions() {
+  if (!suggestedGamesContainer) return;
+  try {
+    const country=regionSelect?.value || 'de';
+    const response=await fetch(`/api/suggestions?country=${encodeURIComponent(country)}`);
+    const data=await response.json();
+    if (!response.ok) throw new Error(data.message||'Vorschläge nicht verfügbar.');
+    renderSuggestions(data.items||[]);
+  } catch (error) {
+    suggestedGamesContainer.innerHTML=`<div class="empty-state"><h3>Vorschläge gerade nicht erreichbar.</h3><p>${escapeHtml(error.message)}</p></div>`;
+  }
+}
+if (regionSelect) regionSelect.addEventListener('change', loadSuggestions);
+loadSuggestions();
+
 async function searchGames(event) {
   if (event) event.preventDefault();
   const term = searchInput.value.trim();

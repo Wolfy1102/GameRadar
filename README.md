@@ -64,3 +64,12 @@ Start Command: `python server.py`. Eine persistente Render Disk mit Mount Path `
 - Signed-in users can save games to favourites from result cards or the detail page.
 - Owner accounts get an Owner Dashboard inside the profile. It lists accounts and lets the owner change user roles and tier labels (`free`, `radar`, `radar_plus`, `ultimate`).
 - These tier changes are account metadata only. Checkout, recurring billing and automatic subscription enforcement are not enabled.
+
+
+## Spielvorschläge, Screenshots und Gameplay
+
+- Die Startseite lädt Steam-Store-Kategorien (Bestseller, Angebote, Neuerscheinungen und kommende Spiele) über `GET /api/suggestions?country=de`.
+- Die Steam-Suche nutzt weiterhin zuerst den vorhandenen SuperDuperBundle-Preisvergleich. Wenn dort keine Steam-Treffer vorliegen oder der Anbieter nicht erreichbar ist, wird als Such-Fallback die Steam-Store-Suche verwendet.
+- Spielseiten laden über `GET /api/game?appid=...` bzw. `GET /api/game?name=...` Beschreibung, Genres, Entwickler, Release-Datum, Screenshots und verfügbare Trailer aus den Steam-Store-Appdetails.
+- Die Detailseite zeigt Preisangebote aus SuperDuperBundle nur dann, wenn diese in der Antwort vorhanden sind. Steam-Metadaten und Preisvergleichsangebote sind getrennte Datenquellen.
+- Die Steam-Store-Endpunkte sind öffentlich erreichbare Store-Endpunkte, keine zugesicherte kommerzielle API. Vor einem kostenpflichtigen Betrieb müssen Nutzungsbedingungen und Rechte für die angezeigten Medien geprüft werden.
